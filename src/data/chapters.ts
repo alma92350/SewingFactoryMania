@@ -720,7 +720,7 @@ export const CHAPTERS: ChapterDef[] = [
       { name: 'Line C', stations: [L, L, L, L, L, L, L, L, Q] },
       { name: 'Line D', stations: [L, L, L, L, L, L, L, L, O, O, O, O, B, T, Q] },
     ],
-    crew: { tam: 0, thu: 10, nhung: 23, quang: null, hai: null, son: null, linh: 34, lan: 35, thao: 36, trang: 37, hoa: 6, ngan: 7, huong: 1, bich: 2, cuc: 17, dung: 11, giang: 12, hanh: 38, kim: 18, phuong: 13, van: 14 },
+    crew: { tam: 0, thu: 10, nhung: 23, quang: null, hai: null, son: null, linh: 34, lan: 35, thao: 36, trang: 37, hoa: 6, ngan: 7, huong: 1, bich: 2, cuc: 17, dung: 11, giang: 12, hanh: 38, kim: 18, phuong: 13, van: 14, hien: null, tuan: null },
     crewLeads: { quang: 1, hai: 3 },
     extraCrew: 26,
     cash: 1500,

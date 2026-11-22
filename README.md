@@ -8,9 +8,9 @@ Inspired by [DataCenterMania](https://github.com/alma92350/DataCenterMania).
 
 - Product requirements, brainstorm and phased plan: [`docs/PRD.md`](docs/PRD.md)
 
-## Current build: Phase 3 "Before Tết"
+## Current build: Phase 4 "1997"
 
-Seven chapters, 1992–1996, plus a Daily Challenge and an endless Sandbox:
+The whole campaign, eight chapters from 1992 to 1997, plus a Daily Challenge and an endless Sandbox:
 
 | Ch | Name | New systems |
 |---|---|---|
@@ -21,8 +21,9 @@ Seven chapters, 1992–1996, plus a Daily Challenge and an endless Sandbox:
 | 4 | Rain and Darkness (7 shifts) | power cuts, the generator and rain; two lines with line leaders |
 | 5 | Before Tết (three lines) | morale, welfare, sick days, quits, the overtime cap, the 13th-month bonus, Tết and the return; mentoring |
 | 6 | The Export Zone (four lines) | the production planner and the merchandiser (quote policy); padded jackets, yukata, baby wear; overflow orders |
+| 7 | The Storm from the North (finale) | the 1997 crisis cancels most Korean work; new markets (Saigon, Europe via Hong Kong, Japanese uniforms); Má's advice on layoffs; the epilogue and the scrapbook |
 
-Family choices (Má's machines, Uncle Sáu's letter, Út's future, Má's savings, the flood, Bác Tư's scissors, Tết at home, Út's return) change the game. 14 achievements and a career title; an opt-in play log kept only on your device. Three difficulty levels, ★/★★/★★★ goals per chapter, autosave at every shift end, Handbook with Bác Tư's tips and a glossary, four micro-games, bottleneck and quality overlays, **English and Vietnamese**, an **e-ink mode** (`?eink=1`), works offline.
+Family choices (Má's machines, Uncle Sáu's letter, Út's future, Má's savings, the flood, the cat, Bác Tư's scissors, Tết at home, Út's return, Má's advice) change the game and the ending. 18 achievements, a career title, the factory scrapbook, and looks unlocked by stars (caps, the cat's collar, calendars, four original radio songs); an opt-in play log kept only on your device. Four difficulty levels (the last, Ship Leaves Thursday, unlocks after Chapter 4), ★/★★/★★★ goals per chapter, autosave at every shift end, Handbook with Bác Tư's tips and a glossary, four micro-games, bottleneck and quality overlays, **English, Vietnamese and French**, an **e-ink mode** (`?eink=1`), works offline.
 
 Controls: tap a seamstress, then tap a machine to move her (tapping an occupied machine swaps them). Tap a machine to change its job, seat someone, or fix it. Tabs: Line, Orders (overtime), Fabric (suppliers, warehouse), Team (hire, line leaders, welfare, mentors, office), Handbook. Keys: `Space` pause, `1` / `2` / `3` speed, `O` map overlay, line chips to switch lines when there are more than two, `Esc` cancel. Add `?seed=N` to the URL to replay a specific day.
 
@@ -45,7 +46,7 @@ npm run build      # typecheck + production build into dist/
 ```
 
 ```bash
-npm run e2e        # builds, then plays the real game in Chromium (desktop + phone)
+npm run e2e        # builds, plays the real game in Chromium (desktop + phone), then runs the axe-core audit
 ```
 
 ## Architecture
@@ -67,6 +68,7 @@ src/
     commands.ts    the only write path (assign, setOp, fix, decide, sample, hire, letGo, overtime, sleep)
     selectors.ts   derived read-only queries (bottleneck, projections, AQL plan)
     morale.ts      morale, welfare, sick days, quits, bonus, Tết, mentoring
+    macro.ts       the 1997 shock, new markets, Má's advice and layoffs
     office.ts      the planner and the merchandiser
     meta.ts        achievements, career title, Daily Challenge calibration
     objectives.ts  chapter stars
@@ -79,7 +81,9 @@ e2e/       Playwright smoke test on the production build
 
 - **The simulation is headless and deterministic.** Same seed and same commands give the same shift (tested).
 - **Balance is a test.** In every chapter the bot must pass ★ on every seed, doing nothing must fail, and ★★★ must not come free.
-- **Translation is a test.** A harvest of every string seen while the bot plays all chapters must be ≥ 99% covered in Vietnamese.
+- **Translation is a test.** A harvest of every string seen while the bot plays all chapters must be ≥ 99% covered in Vietnamese and in French.
+- **Every difficulty is a test.** The bot must earn a star in every chapter on all four difficulties.
+- **Accessibility is a test.** axe-core (WCAG 2.1 A/AA) must find nothing on 28 screens.
 - **Fair play is a test.** From Chapter 5, a bot that exploits its workers must not earn more stars than one that cares for them.
 - **Progressive disclosure is data.** Chapters declare their systems; a test fails if a chapter adds more than two.
 - **Pacing is a test.** A shift is 6–8 real minutes at 1×, and something visibly moves at least every 90 seconds.

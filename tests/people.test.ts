@@ -197,4 +197,23 @@ describe('fair play wins (PRD D7)', () => {
     }
     expect(fairTotal).toBeGreaterThan(exploitTotal);
   });
+
+  it('in Chapter 7, care beats exploitation on stars on every seed, and on average cash', () => {
+    let fairStars = 0;
+    let exploitStars = 0;
+    let fairCash = 0;
+    let exploitCash = 0;
+    for (const seed of SEEDS.slice(0, 4)) {
+      const f = playChapter('ch7', seed);
+      const e = createChapter('ch7', seed);
+      runChapter(e, makeBot({ exploit: true }));
+      expect(stars(f)).toBeGreaterThanOrEqual(stars(e));
+      fairStars += stars(f);
+      exploitStars += stars(e);
+      fairCash += f.cash;
+      exploitCash += e.cash;
+    }
+    expect(fairStars).toBeGreaterThan(exploitStars);
+    expect(fairCash).toBeGreaterThan(exploitCash);
+  }, 30000);
 });

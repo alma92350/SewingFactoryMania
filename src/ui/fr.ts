@@ -12,6 +12,8 @@ export const FR_NAMES: Record<string, string> = {
 };
 
 export const FR: Record<string, string> = {
+  'Keeps the production board in chalk, and in her head.': 'Tient le tableau de production à la craie, et dans sa tête.',
+  'Answers faxes in Korean, Japanese and English.': 'Répond aux fax en coréen, en japonais et en anglais.',
   '{p}': '{p}',
   '{p} · idle': '{p} · à l’arrêt',
   'Line': 'Ligne',

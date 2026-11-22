@@ -14,6 +14,8 @@ export const VI_NAMES: Record<string, string> = {
 };
 
 export const VI: Record<string, string> = {
+  'Keeps the production board in chalk, and in her head.': 'Giữ bảng kế hoạch sản xuất bằng phấn, và trong đầu.',
+  'Answers faxes in Korean, Japanese and English.': 'Trả lời fax bằng tiếng Hàn, tiếng Nhật và tiếng Anh.',
   '{p}': '{p}',
   '{p} · idle': '{p} · nghỉ',
   // ── top bar, tabs, common buttons
