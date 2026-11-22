@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2d4a6e" />
+    <meta name="description" content="SewingFactoryMania: run a 1990s Saigon sewing line. Phase 0 prototype." />
+    <title>SewingFactoryMania</title>
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <script type="module" crossorigin src="./assets/index-Cht7omqp.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-B33ieyZf.css">
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar" aria-label="Status"></header>
+      <main id="stage">
+        <h1 class="sr-only">SewingFactoryMania: the sewing line</h1>
+        <canvas id="floor" aria-label="The sewing line. Tap a seamstress, then a machine, to move her. The same actions are available in the panel below."></canvas>
+        <div id="linePicker" class="line-picker" role="group" aria-label="Lines on screen" hidden></div>
+        <button id="overlayBtn" class="overlay-btn" data-action="overlay" hidden>◐</button>
+        <div id="toasts" aria-live="polite"></div>
+      </main>
+      <section id="panel" aria-live="polite" aria-label="Details"></section>
+    </div>
+    <div id="overlay" hidden></div>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "SewingFactoryMania",
+  "short_name": "SewingMania",
+  "description": "Run a 1990s Saigon sewing factory: balance the line, pass the inspection, make the ship.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#efe4cc",
+  "theme_color": "#2d4a6e",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
