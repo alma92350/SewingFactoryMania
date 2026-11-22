@@ -114,6 +114,8 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     policy: { quote: 1, extras: true },
     prospects: [],
     macro: null,
+    quota: ch.systems.includes('quota') ? { price: 1, history: [] } : null,
+    audit: ch.systems.includes('compliance') ? { visits: 0, score: 0, passed: null, firstPassed: null } : null,
     closedToday: false,
     workers,
     agents: [{ id: 'director', kind: 'director', target: null, task: null, pos: -1, leftAt: 0, arriveAt: 0, until: 0 }],

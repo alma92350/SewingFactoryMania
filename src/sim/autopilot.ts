@@ -60,6 +60,13 @@ export function makeBot(cfg: BotConfig = {}) {
         if (!s.welfare[item] && s.cash > s.tuning.welfareCost[item] + dailyWages(s) * 3) act(applyCommand(s, { type: 'welfare', item }));
       }
     }
+    // American quota: buy when cheap, or the day before the vessel at the latest
+    if (has(s, 'quota') && s.quota && s.minute % 30 === 0) {
+      for (const q of s.orders) {
+        if (q.buyer !== 'atlantic' || q.quotaPaid || (q.status !== 'active' && q.status !== 'queued')) continue;
+        if (s.quota.price <= 1.05 || s.day >= q.dueDay - 1) act(applyCommand(s, { type: 'quota', orderId: q.id }));
+      }
+    }
     // after the shock, look for new customers while there is time and cash
     if (has(s, 'diversify') && s.macro && s.minute === 8 * 60) {
       for (const m of ['saigon', 'uniform', 'europe']) {

@@ -70,6 +70,13 @@ export function starChecks(s: GameState): [boolean, boolean, boolean] {
       const three = two && s.orders.every((o) => o.status === 'shipped' && o.onTime === true) && s.stats.overtimeDays === 0 && s.stats.quits === 0;
       return [one, two, three];
     }
+    case 'ch8': {
+      const us = s.orders.filter((o) => o.buyer === 'atlantic');
+      const one = us.length >= 2 && us.every((o) => o.status === 'shipped' && o.onTime === true);
+      const two = one && s.audit?.firstPassed === true && s.cash >= 4500;
+      const three = two && s.orders.every((o) => o.status === 'shipped' && o.onTime === true) && s.stats.overtimeDays === 0;
+      return [one, two, three];
+    }
     case 'ch7': {
       const one = s.failed === null && s.cash >= 3000;
       const two = one && s.orders.every((o) => o.status === 'shipped' && o.onTime === true) && newCustomers(s) >= 2;

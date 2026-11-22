@@ -33,6 +33,7 @@ import { MODIFIERS } from '../data/generated';
 import { SUPPLIERS } from '../data/suppliers';
 import { MARKETS } from '../data/markets';
 import { layoffBlocked, newCustomers } from '../sim/macro';
+import { AUDIT_CHECKS, auditChecks, quotaCost } from '../sim/us';
 import { cosmeticsHtml, epilogue } from './scrapbook';
 import { metresInTransit, metresPerBundle, rollsSummary, rollsToBuy } from '../sim/sourcing';
 
@@ -189,9 +190,39 @@ export function ordersTabHtml(s: GameState): string {
   return (
     `<div class="row buttons"><button data-action="overtime" aria-pressed="${s.overtime}" ${canOt ? '' : 'disabled'}>${s.overtime ? '✓ Overtime tonight until 19:00' : 'Overtime tonight until 19:00'}</button><span class="muted small">≈ ${money(premium)} extra wages, tired workers</span></div>` +
     (has(s, 'morale') ? `<div class="row small ${capped ? 'bad' : 'muted'}">1994 Labour Code: ${s.stats.overtimeDays}/${s.tuning.overtimeCap} overtime evenings used this month</div>` : '') +
+    quotaHtml(s) +
     marketsHtml(s) +
     list
   );
+}
+
+/** Chapter 8: US export quota, bought per order at a price that moves every night. */
+function quotaHtml(s: GameState): string {
+  if (!has(s, 'quota') || !s.quota) return '';
+  const q = s.quota;
+  const prev = q.history.at(-1);
+  const trend = prev === undefined ? '' : q.price > prev ? ' ▲' : q.price < prev ? ' ▼' : '';
+  const rows = s.orders
+    .filter((o) => o.buyer === 'atlantic' && (o.status === 'active' || o.status === 'queued' || o.quotaPaid))
+    .map((o) => {
+      const label = `${o.qty.toLocaleString('en')} ${PRODUCTS[o.product]!.plural} · ⛴ day ${o.dueDay}`;
+      const state = o.quotaPaid
+        ? '<span class="ok small">✓ <span>Quota bought</span></span>'
+        : `<button class="mini" data-action="quota" data-arg="${o.id}" ${s.cash < quotaCost(s, o) ? 'disabled' : ''}>Buy quota · $${quotaCost(s, o)}</button>`;
+      return `<div class="supplier"><div><b>${esc(label)}</b></div>${state}</div>`;
+    })
+    .join('');
+  return `<h3>US export quota</h3><p class="small">Today: <b>$${q.price.toFixed(2)}/dozen</b>${trend}${prev !== undefined ? ` <span class="muted">(yesterday $${prev.toFixed(2)})</span>` : ''}</p>
+    <p class="small muted">Every American order needs quota before the vessel. Without it, a broker sells it at the cut-off for 50% more.</p>${rows}`;
+}
+
+/** Chapter 8: the buyer's code of conduct, checked live, and the auditor's verdict. */
+function complianceHtml(s: GameState): string {
+  if (!has(s, 'compliance') || !s.audit) return '';
+  const checks = auditChecks(s);
+  const a = s.audit;
+  const head = a.visits === 0 ? 'The auditor visits on day 3. Five of six must pass.' : a.passed ? `Audit passed: ${a.score} of 6.` : `Audit failed: ${a.score} of 6. She comes back on day 6.`;
+  return `<h3>Code of conduct</h3><p class="small ${a.passed === false ? 'bad' : 'muted'}">${head}</p><ul class="goals">${AUDIT_CHECKS.map((c) => `<li class="${checks[c.id] ? 'ok' : 'bad'}">${checks[c.id] ? '✓' : '✗'} ${esc(c.text)}</li>`).join('')}</ul>`;
 }
 
 /** Chapter 7: the shock and the search for new customers. */
@@ -347,7 +378,7 @@ export function teamTabHtml(s: GameState): string {
         )
         .join('')
     : '<p class="muted small">Nobody else at the gate today. New applicants come every morning.</p>';
-  return `${has(s, 'morale') ? careHtml(s) : ''}${has(s, 'merchandising') ? officeHtml(s) : ''}<h3>At the gate this morning</h3>${apps}<h3>Your team · ${money(dailyWages(s))}/day</h3>${people}`;
+  return `${complianceHtml(s)}${has(s, 'morale') ? careHtml(s) : ''}${has(s, 'merchandising') ? officeHtml(s) : ''}<h3>At the gate this morning</h3>${apps}<h3>Your team · ${money(dailyWages(s))}/day</h3>${people}`;
 }
 
 /** Bác Tư's tips contain markup, so Vietnamese and French use whole-text versions instead of the segment translator. */

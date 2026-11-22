@@ -1,4 +1,5 @@
 import { masAdvice } from './macro';
+import { brokerQuota } from './us';
 import { chance, rand } from '../core/rng';
 import { BUYERS } from '../data/buyers';
 import { CREW } from '../data/people';
@@ -195,6 +196,7 @@ export function wipCount(s: GameState, orderId: number): number {
 }
 
 export function shipOrder(s: GameState, o: Order, events: SimEvent[], short = false): void {
+  brokerQuota(s, o, events);
   const pieces = Math.min(o.finished, o.qty);
   const revenue = Math.round(orderValue(o, pieces) * (1 - o.discount));
   const freight = o.airFreight ? Math.round(orderValue(o) * s.tuning.airFreightShare) : 0;
@@ -397,6 +399,17 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
       if (d.flag === 'ch5.scissors') bacTuScissors(s, optionId);
       if (d.flag === 'ch6.ut') utReturns(s, optionId);
       if (d.flag === 'ch7.ma') masAdvice(s, optionId, events);
+      if (d.flag === 'ch8.birthday') {
+        if (optionId === 'afternoon' && s.power) {
+          s.power.closedFrom = 12 * 60;
+          s.power.closedUntil = s.tuning.shiftEnd;
+        }
+        if (optionId === 'dinner') {
+          s.cash -= 120;
+          s.ledger.wages += 120;
+        }
+        for (const w of s.workers) w.morale = Math.min(1, w.morale + (optionId === 'afternoon' ? 0.1 : 0.05));
+      }
       if (d.flag === 'ch5.tet') {
         if (optionId === 'home') s.closedToday = true;
         else tetVolunteers(s);

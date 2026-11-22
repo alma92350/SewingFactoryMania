@@ -89,7 +89,7 @@ export const BUYERS: Record<string, BuyerDef> = {
     id: 'atlantic',
     name: 'Atlantic Outfitters',
     contact: 'Mr. Brooks',
-    habit: 'An American chain store. Huge orders, thin prices, compliance auditors with clipboards. Only after 2007.',
+    habit: 'An American chain store. Huge orders, thin prices, compliance auditors with clipboards. Only after 2001.',
     origin: 'USA',
     inspection: 'normal',
     colour: '#283593',

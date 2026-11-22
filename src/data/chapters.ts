@@ -16,7 +16,11 @@ export type SystemId =
   | 'planning'
   | 'merchandising'
   | 'macro'
-  | 'diversify';
+  | 'diversify'
+  | 'quota'
+  | 'compliance'
+  | 'sites'
+  | 'brand';
 
 export interface QuoteOption {
   label: string;
@@ -50,6 +54,7 @@ export type ScriptEvent =
   | { day: number; minute: number; kind: 'tet' }
   | { day: number; minute: number; kind: 'family2' }
   | { day: number; minute: number; kind: 'cat' }
+  | { day: number; minute: number; kind: 'audit' }
   | { day: number; minute: number; kind: 'shock'; buyer: string; cutPct: number; text: string };
 
 export interface FamilyOption {
@@ -846,6 +851,131 @@ export const CHAPTERS: ChapterDef[] = [
       options: [
         { id: 'keep', label: '“Never lay off the people who built this”', effect: 'Morale +10%; you cannot let anyone go this chapter. The hard path.' },
         { id: 'shrink', label: '“Keep the factory alive”: close the emptiest line', effect: 'Its workers go home with a week’s pay; the bank lends again (+$500); morale −10%. The safer path.' },
+      ],
+    },
+  },
+  {
+    id: 'ch8',
+    index: 8,
+    name: 'The American Order',
+    year: 2002,
+    place: 'The export zone, part II',
+    intro:
+      'March 2002. The trade agreement with the United States came into force in December, and American chain stores have discovered Vietnam. Atlantic Outfitters sends its first order, a quota licence form and a code of conduct thicker than the order. Their auditor visits on day 3.',
+    days: 7,
+    rainDays: [],
+    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting', 'power', 'leaders', 'morale', 'training', 'planning', 'merchandising', 'macro', 'diversify', 'quota', 'compliance'],
+    newSystems: ['quota', 'compliance'],
+    stations: [],
+    lines: [
+      { name: 'Line A', stations: [C, L, L, L, L, L, O, O, O, B, Q] },
+      { name: 'Line B', stations: [L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+      { name: 'Line C', stations: [L, L, L, L, L, L, L, L, Q] },
+      { name: 'Line D', stations: [L, L, L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+    ],
+    crew: { tam: 0, thu: 10, nhung: 23, quang: null, hai: null, son: null, linh: 34, lan: 35, thao: 36, trang: 37, hoa: 6, ngan: 7, huong: 1, bich: 2, cuc: 17, dung: 11, giang: 12, hanh: 38, kim: 18, phuong: 13, van: 14, hien: null, tuan: null },
+    crewLeads: { quang: 1, hai: 3 },
+    extraCrew: 26,
+    cash: 2500,
+    rent: 45,
+    applicants: 4,
+    starText: ['Ship Atlantic’s orders on time', '…pass the first audit and finish with $4,500 or more', '…with every order on time and no overtime'],
+    applicantRoles: ['operator', 'mechanic', 'qc', 'cutter', 'electrician', 'leader', 'planner', 'merchandiser'],
+    script: [
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'us1',
+          buyer: 'atlantic',
+          product: 'polo',
+          text: 'Polo shirts for 400 stores, CMT. Quota is your responsibility. Our auditor visits on day 3. Mr. Brooks.',
+          optional: false,
+          options: [
+            { label: 'Test lot', qty: 900, price: 11, dueDay: 5 },
+            { label: 'Spring lot', qty: 1100, price: 11, dueDay: 6 },
+            { label: 'All stores', qty: 1300, price: 10.8, dueDay: 6 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'hanil8',
+          buyer: 'hanil',
+          product: 'shirt',
+          text: 'Korea is buying again, carefully. Shirts, CMT. Ms. Park.',
+          optional: false,
+          options: [
+            { label: 'Small lot', qty: 800, price: 7.6, dueDay: 5 },
+            { label: 'Usual lot', qty: 1000, price: 7.6, dueDay: 6 },
+            { label: 'Big lot', qty: 1200, price: 7.4, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'yukata8',
+          buyer: 'sakuraya',
+          product: 'yukata',
+          text: 'Yukata, as every spring. The same care, please. Watanabe.',
+          optional: false,
+          options: [
+            { label: 'Spring lot', qty: 400, price: 18, dueDay: 5 },
+            { label: 'Usual lot', qty: 500, price: 18, dueDay: 6 },
+            { label: 'Big lot', qty: 600, price: 17.5, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'us2',
+          buyer: 'atlantic',
+          product: 'jeans',
+          fob: true,
+          text: 'Jeans, FOB: you buy the denim. Same quota rules. If the audit goes well, there is much more. Mr. Brooks.',
+          optional: false,
+          options: [
+            { label: 'Test lot', qty: 600, price: 12.5, dueDay: 7 },
+            { label: 'Store lot', qty: 800, price: 12.5, dueDay: 7 },
+            { label: 'Big lot', qty: 1000, price: 12.2, dueDay: 7 },
+          ],
+        },
+      },
+      { day: 3, minute: 13 * 60, kind: 'audit' },
+      { day: 4, minute: 7 * 60, kind: 'family2' },
+      {
+        day: 4,
+        minute: 10 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'kansai8',
+          buyer: 'kansai',
+          product: 'workwear',
+          text: 'A small lot of jackets for a new plant in Aichi, CMT. Mr. Mori.',
+          optional: true,
+          options: [{ label: 'New plant', qty: 400, price: 20, dueDay: 7 }],
+        },
+      },
+      { day: 6, minute: 13 * 60, kind: 'audit' },
+    ],
+    family2: {
+      flag: 'ch8.birthday',
+      when: 'event',
+      title: 'Má turns seventy',
+      body: 'Today is Má’s seventieth birthday. Half the old crew knew her before they knew you. Lan asks, very politely, whether there will be a party.',
+      options: [
+        { id: 'afternoon', label: 'Close at noon: everyone to Má’s party', effect: 'Lose the afternoon; morale +10%' },
+        { id: 'dinner', label: 'A dinner after work, for everyone', effect: 'Costs $120; morale +5%' },
       ],
     },
   },

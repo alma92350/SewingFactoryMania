@@ -90,6 +90,14 @@ export const TIPS: Record<string, Tip> = {
     title: 'Every factory needs a cat.',
     body: 'Mice love cotton. A cat keeps the warehouse clean and the workers smiling. She sleeps through lunch on the bench.',
   },
+  quota: {
+    title: 'Paper for every dozen.',
+    body: 'America limits how many garments each country sends: every American order needs <b>export quota</b>, bought per dozen in the Orders tab. The price moves every night. Buy early and you may pay too much; wait and a broker charges half again at the cut-off.',
+  },
+  compliance: {
+    title: 'The auditor reads everything, con.',
+    body: 'Atlantic Outfitters has a <b>code of conduct</b>: overtime, fire exits, water, fans, tired people, and what your workers say when you are not in the room. The Team tab shows each rule live. Five of six must pass on day 3.',
+  },
   inspection: {
     title: 'After the inspection.',
     body: 'The defect report shows which operation, which seamstress and which cause made the defects. Learning and worn needles are the usual suspects; QC catches most of the rest.',
@@ -126,5 +134,7 @@ export const GLOSSARY: { term: string; text: string }[] = [
   { term: 'Merchandiser', text: 'The office person who talks to buyers: quotes, samples, faxes.' },
   { term: 'Production planner', text: 'The office person who decides which order goes on which line, and buys the fabric.' },
   { term: 'Severance', text: 'Money paid to someone you let go. In the game: a week of wages.' },
+  { term: 'Quota', text: 'A limit on how many garments of a category a country may export to the United States; factories buy the right to ship, per dozen.' },
+  { term: 'Code of conduct', text: 'A buyer’s rules for the factories that sew for it: hours, safety, wages, no child labour. Checked by audits.' },
   { term: '1997 crisis', text: 'The Asian financial crisis: from July 1997 the baht, the rupiah and the won fell, and orders vanished.' },
 ];

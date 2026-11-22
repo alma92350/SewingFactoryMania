@@ -123,5 +123,5 @@ export function masAdvice(s: GameState, choice: string, events: SimEvent[]): voi
 
 /** Letting someone go: counted as a layoff; refused after promising Má. */
 export function layoffBlocked(s: GameState): boolean {
-  return has(s, 'macro') && s.campaign['ch7.ma'] === 'keep';
+  return s.chapterId === 'ch7' && s.campaign['ch7.ma'] === 'keep';
 }

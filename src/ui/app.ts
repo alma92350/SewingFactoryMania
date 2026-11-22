@@ -367,6 +367,8 @@ export class App {
     if (has(s, 'macro') && s.macro) this.queueTip('macro');
     if (has(s, 'diversify') && s.macro && s.minute > 7 * 60 + 20) this.queueTip('diversify');
     if (s.campaign.cat === 'adopt' && has(s, 'sourcing')) this.queueTip('cat');
+    if (has(s, 'quota') && s.orders.some((o) => o.buyer === 'atlantic')) this.queueTip('quota');
+    if (has(s, 'compliance')) this.queueTip('compliance');
   }
 
   // ───────────────────────────── input
@@ -712,6 +714,9 @@ export class App {
       }
       case 'prospect':
         this.command({ type: 'prospect', market: arg });
+        return;
+      case 'quota':
+        this.command({ type: 'quota', orderId: Number(arg) });
         return;
       case 'policy': {
         const [quote, extras] = arg.split(':');

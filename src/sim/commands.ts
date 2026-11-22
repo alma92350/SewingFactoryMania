@@ -2,6 +2,7 @@ import { applySampleResult, bestStationFor, resolveDecision } from './orders';
 import { buyFabric, rejectRolls } from './sourcing';
 import { buyWelfare } from './morale';
 import { layoffBlocked, prospect } from './macro';
+import { buyQuota } from './us';
 import { makeWorker } from './state';
 import { endDay } from './sim';
 import { has, opDef, orderById, posOf, walkMinutes, workerById } from './selectors';
@@ -25,7 +26,8 @@ export type Command =
   | { type: 'welfare'; item: 'fans' | 'canteen' | 'water' }
   | { type: 'mentor'; junior: string; senior: string | null }
   | { type: 'policy'; quote: number; extras: boolean }
-  | { type: 'prospect'; market: string };
+  | { type: 'prospect'; market: string }
+  | { type: 'quota'; orderId: number };
 
 export type CommandResult = { ok: true; events: SimEvent[] } | { ok: false; error: string };
 
@@ -60,6 +62,10 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
       return hire(s, c.applicant);
     case 'letGo':
       return letGo(s, c.workerId);
+    case 'quota': {
+      const err = buyQuota(s, c.orderId);
+      return err ? no(err) : ok();
+    }
     case 'prospect': {
       const err = prospect(s, c.market);
       return err ? no(err) : ok();

@@ -184,6 +184,8 @@ export interface Order {
   shippedPieces: number;
   revenue: number;
   onTime: boolean | null;
+  /** American orders (Chapter 8+): export quota bought. */
+  quotaPaid?: boolean;
 }
 
 export interface DecisionOption {
@@ -264,6 +266,10 @@ export interface GameState {
   policy: { quote: number; extras: boolean };
   /** Chapter 7: new markets being explored (the first fax arrives on `day`). */
   prospects: { market: string; day: number; sent: boolean }[];
+  /** Chapter 8: the US quota price per dozen (and its history). */
+  quota: { price: number; history: number[] } | null;
+  /** Chapter 8: the compliance audit. */
+  audit: { visits: number; score: number; passed: boolean | null; firstPassed: boolean | null } | null;
   /** Chapter 7: the macro shock, once it has happened. */
   macro: { day: number; buyer: string; cutPieces: number } | null;
   /** Today the factory is closed (no wages, nobody sews). */

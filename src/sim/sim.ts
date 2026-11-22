@@ -9,6 +9,7 @@ import { bonusCost, morningSickness, nightlyMorale, nightlyQuits, tetReturns } f
 import { checkOrders, lineCanMake, pushDecision, pushFamily, pushFamily2, shipOrder } from './orders';
 import { sandboxFaxOptions } from '../data/generated';
 import { macroShock, prospectFaxes } from './macro';
+import { nightlyQuota, runAudit } from './us';
 import { chance } from '../core/rng';
 import { generateApplicants } from './people';
 import { stepStation } from './production';
@@ -126,6 +127,8 @@ function fireScript(s: GameState, events: SimEvent[]): void {
         ],
       });
       events.push({ kind: 'decision', id: d.id });
+    } else if (e.kind === 'audit') {
+      runAudit(s, events);
     } else if (e.kind === 'shock') {
       macroShock(s, e.buyer, e.cutPct, e.text, events);
     } else if (e.kind === 'flood') {
@@ -203,6 +206,7 @@ export function endDay(s: GameState): SimEvent[] {
   const ch = chapterOf(s);
   nightlyMorale(s, s.overtime);
   nightlyMice(s, events);
+  nightlyQuota(s);
   if (ch.tetDay && s.day === ch.tetDay) tetReturns(s, events);
   else nightlyQuits(s, events);
   if (s.day >= ch.days) {
