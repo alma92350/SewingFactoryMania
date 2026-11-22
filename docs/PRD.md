@@ -961,3 +961,72 @@ Phase 5 was parked as a list of post-launch ideas. This build ships the four tha
 - The domestic brand storyline; Sông Sài Fashion House in Chapter 7 is its seed.
 - A full 2000s campaign.
 - A shared, moderated gallery for community-made buyers and scenarios.
+
+## Part II results (build 0.6.0, the parked Phase 5 items)
+
+The four parked items now ship. Three of them (the 2000s era, multiple factories and the domestic brand) became **Part II of the campaign, 2002–2008**, one chapter each. The fourth, the community gallery, ships in a form a static site can host.
+
+**Shipped**
+- **Chapter 8 · The American Order** (March 2002, after the US–Vietnam trade agreement). New systems:
+  - **US export quota**: every Atlantic Outfitters order needs quota, bought per dozen in the Orders tab. The price moves every night and jumps on day 4; without quota, a broker sells it at the cut-off for 50% more.
+  - **Compliance audit**: the buyer's code of conduct has six live checks in the Team tab: overtime, clear fire exits, water and first aid, fans, nobody exhausted, and what workers say in private. Five must pass on day 3. A failure costs 10% on every open American order and brings a second visit on day 6.
+  - Family scene: **Má turns seventy** (close at noon for her party, or a dinner after work).
+- **Chapter 9 · Two Cities** (September 2005). New system: **sites**.
+  - Two lines in Saigon and two near Hà Nội; the director is in one city at a time. You can only seat people, change jobs, fix machines and hire where you are; a flight takes three hours and costs $40.
+  - The other city runs on its line leaders (who act on their own lines), its own mechanics and the office. Workers never move between cities, and northern wages are 15% lower.
+  - The line picker shows *Saigon* and *Hà Nội*; the top bar shows where you are, or your flight.
+  - Family scene: **Who runs Hà Nội?** Út moves north (a free leader), or you hire Mr. Thắng (a paid leader, and better northern applicants).
+- **Chapter 10 · Our Own Label** (October 2008). New system: **brand**.
+  - You choose a first collection (office shirts, weekend polos or winter jackets). A Saigon mill delivers the fabric at once and is paid at the end of the season.
+  - Your shops on Lê Lợi street sell what is finished every night, depending on price (sale, normal or premium), newspaper advertising (+40% for two nights), quality (defects come back) and the label's name. Leftovers go at 60% off on the last night.
+  - On day 3, after Lehman Brothers, Atlantic cancels half of its open work.
+  - Family scene: **the label's name**. "Sài Gòn 1979" brings more customers and lower shop fees; "Lan & Co." brings higher prices and fewer customers.
+- **Part II epilogue** in the chapter-end screen and the scrapbook (Út or Mr. Thắng in the north, the label, Má's birthday, the old workshop as a museum).
+- **Community gallery**: six curated scenarios on the title screen (play, or open in the editor), and **Submit to the gallery** in the editor, which opens a prefilled GitHub issue (with an issue template). The maintainer reviews it and adds the code to `src/data/gallery.ts` by pull request; that review is the moderation. Every gallery code is decoded and sanitised at runtime like any shared code.
+- Four achievements (Clean Audit, Two Cities, Made in Saigon, Thirty Years; 24 in all), four tips, four glossary terms, Part I and Part II headings on the title screen; about 200 new strings in Vietnamese and French (both still at 100% of ≈1.63 million harvested segments).
+
+**Measured with the bot** (8 seeds)
+
+| Chapter | Seamstress stars | Cash at end | Quiet (avg) | Actions per game hour (Ch2: 0.52) | Exploiter |
+|---|---|---:|---:|---:|---|
+| 8 | ★★ ×8 | $4,627–4,698 | 8% | 0.53 (+2%) | ★ ×8, fails the audit twice, avg cash $37 less |
+| 9 | ★★ ×8 | $4,693–4,708 | 0% | 0.58 (+12%) | ★★ ×5, none ×3, 18–21 quits, avg cash $110 more |
+| 10 | ★★ ×8 | $6,574–6,683 | 0% | 0.62 (+19%) | ★ ×8 (17–23 quits), avg cash $200 more |
+
+Every chapter on every difficulty (stars per seed):
+
+| Difficulty | Ch8 | Ch9 | Ch10 |
+|---|---|---|---|
+| Apprentice | 22222222 | 22222222 | 22222222 |
+| Seamstress | 22222222 | 22222222 | 22222222 |
+| Line Leader | 11111111 | 11111111 | 22222222 |
+| Ship Leaves Thursday | 11111111 | 11111111 | 11111111 |
+
+Both family choices win in Chapters 9 and 10. Every collection wins with either label name, and neither name is always richer (tested).
+
+**Checks kept green**
+- 175 unit tests, including:
+  - the whole campaign (11 chapters) on four difficulties;
+  - ≤ 2 new systems per chapter;
+  - taps flat in Chapters 3–10 within ±20% of Chapter 2;
+  - fair play on stars in Chapters 5, 7, 8 and 10;
+  - quota, broker, audit, flights, city rules, shop sales, price and advertising.
+- Playwright smoke 40/40: buy quota and read the code of conduct; fly to Hà Nội and switch the map to it; choose a collection, advertise and put it on sale; play a gallery scenario.
+- axe-core 40/40 screens (new: gallery, the Chapter 10 opening card and tabs).
+- Chapter 10 at 4× CPU throttling: median frame 16.7 ms, p95 16.8 ms.
+
+**Notable fixes found while building**
+- Má's Chapter 7 promise ("never lay off") was read from the campaign and would have blocked layoffs in every later chapter; it now applies to Chapter 7 only.
+- The Chapter 10 collection's fabric, bought FOB from slow suppliers, often arrived on day 5 and left lines idle; it now comes from a Saigon mill on credit.
+- "Lan & Co." first earned more in every case. "Sài Gòn 1979" now brings more customers and lower shop fees, so each name wins about half the time.
+- In Chapter 10 the exploiter first earned the same stars as the fair bot; ★★ now also requires keeping your people (at most three quits).
+- Contrast: the late-projection colour in the top bar and the detail text on the first choice button were just under 4.5:1.
+- The harvest missed Part II's first faxes: an office answered them, or an opening family scene froze the world. It now removes the office and answers family scenes before peeking.
+
+**Deviations and limits**
+- **Fair play wins on stars in every Part II chapter, but not always on cash**: in Chapters 9 and 10 the exploiter ends $100–200 richer while losing a star (or two) to quits.
+- Office staff hired in any chapter can still be seated at a sewing machine (an old quirk the Phase 3 balance relies on); they keep doing their office work.
+- Cutting happens in Saigon; bundles reach Hà Nội with no transport delay.
+- Quota is one price for all categories, and the audit is one visit (two if failed), not a year-round programme.
+- The gallery is curated by pull request, not a live online database: GitHub Pages has no server.
+- The "2000s campaign" is three chapters, not a full second campaign; computerised planning appears as the office from the first morning.

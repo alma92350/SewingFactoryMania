@@ -74,7 +74,7 @@ export function starChecks(s: GameState): [boolean, boolean, boolean] {
     case 'ch10': {
       const exports = s.orders.filter((o) => o.buyer !== 'ownlabel');
       const one = s.failed === null && s.cash >= 3500 && fullPriceShare(s) >= 0.6;
-      const two = one && s.cash >= 6000 && exports.every((o) => o.status === 'shipped' && o.onTime === true);
+      const two = one && s.cash >= 6000 && s.stats.quits <= 3 && exports.every((o) => o.status === 'shipped' && o.onTime === true);
       const three = two && fullPriceShare(s) >= 0.9 && s.stats.overtimeDays === 0 && (s.stats.layoffs ?? 0) === 0;
       return [one, two, three];
     }

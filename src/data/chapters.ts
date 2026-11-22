@@ -1126,7 +1126,7 @@ export const CHAPTERS: ChapterDef[] = [
     cash: 2600,
     rent: 70,
     applicants: 4,
-    starText: ['Sell 60% of your collection at full price and keep $3,500', '…ship every export order on time and finish with $6,000 or more', '…sell 90% at full price, with no overtime and nobody laid off'],
+    starText: ['Sell 60% of your collection at full price and keep $3,500', '…ship every export order on time, keep your people (three quits at most) and finish with $6,000 or more', '…sell 90% at full price, with no overtime and nobody laid off'],
     applicantRoles: ['operator', 'mechanic', 'qc', 'cutter', 'electrician', 'leader', 'planner', 'merchandiser'],
     script: [
       { day: 1, minute: 7 * 60, kind: 'collection' },

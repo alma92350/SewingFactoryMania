@@ -164,6 +164,15 @@ describe('Chapter 10: your own label (Part II)', () => {
 });
 
 describe('Part II fair play and workload', () => {
+  it('in Chapter 10, care beats exploitation on stars on every seed (people who quit cost the second star)', () => {
+    for (const seed of SEEDS.slice(0, 3)) {
+      const fair = playChapter('ch10', seed);
+      const bad = createChapter('ch10', seed);
+      runChapter(bad, makeBot({ exploit: true }));
+      expect(stars(fair)).toBeGreaterThan(stars(bad));
+    }
+  }, 30000);
+
   it('in Chapter 8, care beats exploitation on stars on every seed', () => {
     for (const seed of SEEDS.slice(0, 4)) {
       const fair = playChapter('ch8', seed);

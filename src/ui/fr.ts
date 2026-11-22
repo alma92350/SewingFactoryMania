@@ -13,6 +13,9 @@ export const FR_NAMES: Record<string, string> = {
 
 export const FR: Record<string, string> = {
   // ── Part II: 2002–2008
+  'Sewing for your shops': 'En couture pour vos boutiques',
+  'Collection finished': 'Collection terminée',
+  'no vessel: the shops sell what is finished': 'pas de navire : les boutiques vendent ce qui est fini',
   'Part I': 'Partie I',
   'Part II': 'Partie II',
   'The American Order': 'La commande américaine',
@@ -132,10 +135,10 @@ export const FR: Record<string, string> = {
   '★ Sell {n} of your collection at full price and keep {n}': '★ Vendre {n} de votre collection au prix normal et garder {n}',
   '☆ Sell {n} of your collection at full price and keep {n}': '☆ Vendre {n} de votre collection au prix normal et garder {n}',
   'Sell {n} of your collection at full price and keep {n}': 'Vendre {n} de votre collection au prix normal et garder {n}',
-  '★ …ship every export order on time and finish with {n} or more': '★ …expédier à temps chaque commande export et finir avec {n} ou plus',
-  '★★ …ship every export order on time and finish with {n} or more': '★★ …expédier à temps chaque commande export et finir avec {n} ou plus',
-  '☆ …ship every export order on time and finish with {n} or more': '☆ …expédier à temps chaque commande export et finir avec {n} ou plus',
-  '…ship every export order on time and finish with {n} or more': '…expédier à temps chaque commande export et finir avec {n} ou plus',
+  '★ …ship every export order on time, keep your people (three quits at most) and finish with {n} or more': '★ …expédier à temps chaque commande export, garder votre monde (trois départs au plus) et finir avec {n} ou plus',
+  '★★ …ship every export order on time, keep your people (three quits at most) and finish with {n} or more': '★★ …expédier à temps chaque commande export, garder votre monde (trois départs au plus) et finir avec {n} ou plus',
+  '☆ …ship every export order on time, keep your people (three quits at most) and finish with {n} or more': '☆ …expédier à temps chaque commande export, garder votre monde (trois départs au plus) et finir avec {n} ou plus',
+  '…ship every export order on time, keep your people (three quits at most) and finish with {n} or more': '…expédier à temps chaque commande export, garder votre monde (trois départs au plus) et finir avec {n} ou plus',
   '★ …sell {n} at full price, with no overtime and nobody laid off': '★ …vendre {n} au prix normal, sans heures sup et sans licenciement',
   '★★★ …sell {n} at full price, with no overtime and nobody laid off': '★★★ …vendre {n} au prix normal, sans heures sup et sans licenciement',
   '☆ …sell {n} at full price, with no overtime and nobody laid off': '☆ …vendre {n} au prix normal, sans heures sup et sans licenciement',

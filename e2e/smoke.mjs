@@ -263,6 +263,72 @@ for (const [name, opts] of [
   const shared = await page.locator('#scn-name').inputValue();
   check(`${name} shared link`, shared === 'Night market', shared);
 
+  // ── Part II: quota and audit (Ch8), two cities (Ch9), your own label (Ch10), the gallery
+  const part2 = JSON.stringify({ stars: { ch0: 2, ch1: 1, ch2: 1, ch3: 1, ch4: 1, ch5: 1, ch6: 1, ch7: 1, ch8: 1, ch9: 1 }, campaign: { cat: 'adopt' }, difficulty: 'seamstress', sound: false, seenTips: [] });
+  await page.evaluate((p) => localStorage.setItem('sfm.progress.v1', p), part2);
+  await page.goto(base);
+  await page.locator('[data-action="start"][data-arg="ch8"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  for (let i = 0; i < 10 && !(await page.evaluate(() => window.__app.state.orders.length)); i++) await clearOverlays(page);
+  await clearOverlays(page);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.getByRole('tab', { name: /Orders/ }).click();
+  const buyQuota = page.locator('[data-action="quota"]').first();
+  await buyQuota.waitFor({ timeout: 5000 });
+  await buyQuota.click();
+  const c8 = await page.evaluate(() => window.__app.state.orders.filter((o) => o.buyer === 'atlantic' && o.quotaPaid).length);
+  await page.getByRole('tab', { name: /Team/ }).click();
+  await page.locator('#panel h3', { hasText: /conduct/i }).waitFor({ timeout: 5000 }).catch(() => {});
+  const conduct = await page.locator('#panel').innerText();
+  if (shots) await page.screenshot({ path: `${shots}/${name}-ch8.png` });
+  check(`${name} ch8`, c8 >= 1 && /code of conduct/i.test(conduct), `quota=${c8}`);
+
+  await page.goto(base);
+  await page.locator('[data-action="start"][data-arg="ch9"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  await clearOverlays(page);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.getByRole('tab', { name: /Line/ }).click();
+  await page.locator('[data-action="travel"][data-arg="hanoi"]').click();
+  await page.locator('#linePicker button[data-arg="2,3"]').click();
+  const c9 = await page.evaluate(() => ({ flight: window.__app.state.director.flightUntil, site: window.__app.state.director.site }));
+  const picker = await page.locator('#linePicker').innerText();
+  if (shots) await page.screenshot({ path: `${shots}/${name}-ch9.png` });
+  check(`${name} ch9`, c9.site === 'hanoi' && c9.flight > 0 && /Hà Nội/.test(picker), JSON.stringify(c9));
+
+  await page.evaluate((p) => localStorage.setItem('sfm.progress.v1', p), part2);
+  await page.goto(base);
+  await page.locator('[data-action="start"][data-arg="ch10"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(200);
+    const col = page.locator('[data-action="decide"][data-arg$=":polo"]');
+    if (await col.count()) {
+      if (shots) await page.screenshot({ path: `${shots}/${name}-ch10-collection.png` });
+      await col.click();
+      break;
+    }
+    const choice = page.locator('#overlay button.choice').first();
+    const tip = page.locator('[data-action="tipOk"]');
+    if (await tip.count()) await tip.click();
+    else if (await choice.count()) await choice.click();
+  }
+  await clearOverlays(page);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.getByRole('tab', { name: /Orders/ }).click();
+  await page.locator('[data-action="advertise"]').click();
+  await page.locator('[data-action="price"][data-arg="-1"]').click();
+  const c10 = await page.evaluate(() => ({ col: window.__app.state.brand?.collection, ad: window.__app.state.brand?.adUntil, price: window.__app.state.brand?.priceLevel }));
+  if (shots) await page.screenshot({ path: `${shots}/${name}-ch10.png` });
+  check(`${name} ch10`, c10.col === 'polo' && c10.ad > 0 && c10.price === -1, JSON.stringify(c10));
+
+  await page.goto(base);
+  await page.locator('[data-action="gallery"]').click();
+  await page.locator('[data-action="galPlay"]').first().click();
+  await page.locator('[data-action="introOk"]').click();
+  const gal = await page.evaluate(() => window.__app.state.chapterId);
+  check(`${name} gallery`, gal.startsWith('scn:'), gal.slice(0, 12));
+
   // ── Scrapbook and French
   await page.goto(base);
   await page.locator('[data-action="scrapbook"]').first().click();

@@ -22,7 +22,7 @@ const server = createServer(async (req, res) => {
 });
 await new Promise((r) => server.listen(0, r));
 const base = `http://localhost:${server.address().port}/index.html?seed=3`;
-const allStars = { ch0: 3, ch1: 2, ch2: 2, ch3: 2, ch4: 2, ch5: 2, ch6: 2, ch7: 2 };
+const allStars = { ch0: 3, ch1: 2, ch2: 2, ch3: 2, ch4: 2, ch5: 2, ch6: 2, ch7: 2, ch8: 2, ch9: 2 };
 
 const browser = await chromium.launch();
 const results = [];
@@ -32,7 +32,7 @@ async function audit(page, name) {
   if (!(await page.evaluate(() => !!window.axe))) await page.addScriptTag({ content: axeSource });
   const r = await page.evaluate(async () => {
     const out = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } });
-    return out.violations.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.slice(0, 3).map((n) => n.target.join(' ')) }));
+    return out.violations.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.slice(0, 3).map((n) => n.target.join(' ') + ' [' + (n.any[0]?.message ?? '') + ']') }));
   });
   results.push({ name, violations: r });
   console.log(`${r.length ? 'FAIL' : 'PASS'} ${name}${r.length ? '\n  ' + r.map((v) => `${v.id} (${v.impact}): ${v.help} → ${v.nodes.join(' | ')}`).join('\n  ') : ''}`);
@@ -86,6 +86,24 @@ for (const [device, opts] of [
   await page.locator('[data-action="editor"]').click();
   await page.locator('[data-action="scnAdd"]').click();
   await audit(page, `${device} scenario editor`);
+  await page.goto(base);
+  await page.locator('[data-action="gallery"]').click();
+  await audit(page, `${device} gallery`);
+
+  // Part II: the label panel, the code of conduct, two cities
+  await page.goto(base);
+  await page.locator('[data-action="start"][data-arg="ch10"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  await page.waitForTimeout(300);
+  await audit(page, `${device} ch10 first card`);
+  await clearOverlays(page);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.getByRole('tab', { name: /Orders/ }).click();
+  await audit(page, `${device} ch10 Orders tab`);
+  await page.getByRole('tab', { name: /Team/ }).click();
+  await audit(page, `${device} ch10 Team tab`);
+  await page.getByRole('tab', { name: /Line/ }).click();
+  await audit(page, `${device} ch10 Line tab`);
 
   // a chapter: intro, every tab, a fax, a family card
   await page.goto(base);

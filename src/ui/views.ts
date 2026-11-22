@@ -72,6 +72,7 @@ export function topbarHtml(s: GameState, speed: number, sound: boolean): string 
       .map((_, i) => activeOrder(s, i))
       .filter((x): x is Order => !!x)
       .map((x) => {
+        if (x.buyer === 'ownlabel') return `${esc(BUYERS[x.buyer]!.name)} ${x.finished}/${x.qty}`;
         const ok = projectedFinishDay(s, x) <= x.dueDay;
         return `${esc(BUYERS[x.buyer]!.contact)} ${x.finished}/${x.qty} <span class="proj ${ok ? 'ok' : 'bad'}">⛴${x.dueDay}${ok ? '✓' : '✗'}</span>`;
       });
@@ -193,6 +194,12 @@ function orderCard(s: GameState, o: Order): string {
   else {
     const day = projectedFinishDay(s, o);
     status = day <= o.dueDay ? `<span class="ok">On track: packed by day ${day}</span>` : `<span class="bad">Late at this pace${Number.isFinite(day) ? `: day ${day}` : ''}</span>`;
+  }
+  if (o.buyer === 'ownlabel') {
+    const st = o.status === 'active' || o.status === 'queued' ? (o.status === 'queued' ? '<span class="muted">Waiting for the line</span>' : '<span class="ok">Sewing for your shops</span>') : '<span class="ok">Collection finished</span>';
+    return `<div class="order"><div class="row"><b>${esc(b.name)}</b> <span class="muted">${esc(b.contact)} · ${b.origin}</span></div>
+    <div class="row small">${s.lines.length > 1 ? `<b>${esc(s.lines[o.line]!.name)}</b> · ` : ''}${o.qty.toLocaleString('en')} ${p.plural} · <span>no vessel: the shops sell what is finished</span></div>
+    <div class="bar"><div style="width:${pct}%"></div></div><div class="row small">${o.finished}/${o.qty} packed · ${st}</div></div>`;
   }
   return `<div class="order"><div class="row"><b>${esc(b.contact)}</b> <span class="muted">${esc(b.name)} · ${b.origin}</span></div>
     <div class="row small">${s.lines.length > 1 ? `<b>${esc(s.lines[o.line]!.name)}</b> · ` : ''}${has(s, 'sourcing') ? `${o.mode === 'fob' ? 'FOB' : 'CMT'} · ` : ''}${o.qty.toLocaleString('en')} ${p.plural} · $${o.price.toFixed(2)}/dz · worth ${money(orderValue(o))} · ⛴ day ${o.dueDay}${o.airFreight ? ' (air freight)' : ''}${has(s, 'quality') && b.inspection !== 'none' ? ` · ${b.inspection} inspection` : ''}</div>

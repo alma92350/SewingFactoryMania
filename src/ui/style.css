@@ -21,7 +21,7 @@ body { overscroll-behavior: none; }
 #topbar .clock { font: bold 18px ui-monospace, monospace; }
 #topbar .goal { font-weight: 600; }
 #topbar .stars { color: #e8c547; letter-spacing: 1px; }
-#topbar .proj { font-size: 13px; opacity: 0.9; }
+#topbar .proj { font-size: 13px; }
 #topbar .proj.bad { color: #ffb4a8; }
 #topbar .proj.ok { color: #b9f6ca; }
 #topbar .speeds { margin-left: auto; display: flex; gap: 4px; }
@@ -99,6 +99,7 @@ dl { margin: 0; } dt { font-weight: 700; margin-top: 6px; } dd { margin: 0 0 4px
 .choices { display: flex; flex-direction: column; gap: 8px; }
 .card button.choice { display: flex; flex-direction: column; align-items: flex-start; text-align: left; width: 100%; }
 .card button.choice small { font-weight: 400; opacity: 0.85; }
+.card button.primary.choice small { opacity: 1; }
 .card { max-height: 92dvh; overflow-y: auto; }
 .card.fax { background: repeating-linear-gradient(#fbf8f0 0 26px, #f1ece0 26px 27px); font-family: 'Courier New', ui-monospace, monospace; transform: rotate(-0.6deg); }
 .card.fax h2 { font-family: system-ui, sans-serif; }
