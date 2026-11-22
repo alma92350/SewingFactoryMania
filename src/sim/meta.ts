@@ -2,7 +2,7 @@
  * Meta progression (PRD §16): Daily Challenge calibration, achievements, career titles.
  * Everything here is pure and deterministic; the UI stores the results in local progress.
  */
-import { CHAPTER_BY_ID, CHAPTERS } from '../data/chapters';
+import { CHAPTER_BY_ID, CHAPTERS, type ChapterDef } from '../data/chapters';
 import { dailyDef, dailyNumber } from '../data/generated';
 import { makeBot } from './autopilot';
 import { stars } from './objectives';
@@ -22,6 +22,18 @@ export function prepareDaily(dateKey: number) {
     def.scoreStars = [r(p * 0.8), r(p * 1.02), r(p * 1.15)];
     def.starText = def.scoreStars.map((n) => `Pack ${n} pieces`) as [string, string, string];
   }
+  return def;
+}
+
+/** A finite scenario's star goals come from a bot run on the same seed (like the Daily Challenge). */
+export function prepareScenario(def: ChapterDef, seed: number): ChapterDef {
+  if (def.days >= 9999 || def.scoreStars) return def;
+  const s = createChapter(def.id, seed);
+  runChapter(s, makeBot());
+  const p = s.orders.reduce((a, o) => a + o.finished, 0);
+  const r = (v: number) => Math.max(10, Math.round(v / 10) * 10);
+  def.scoreStars = [r(p * 0.75), r(p * 1.02), r(p * 1.15)];
+  def.starText = def.scoreStars.map((n) => `Pack ${n} pieces`) as [string, string, string];
   return def;
 }
 

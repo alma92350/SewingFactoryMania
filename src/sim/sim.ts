@@ -66,7 +66,7 @@ function fireScript(s: GameState, events: SimEvent[]): void {
   if (ch.generator && s.minute === s.tuning.shiftStart && !s.firedEvents.includes(-s.day)) {
     s.firedEvents.push(-s.day);
     const products = Object.keys(PRODUCTS).filter((p) => s.lines.some((_, i) => lineCanMake(s, i, p)));
-    const g = sandboxFaxOptions(s.seed, s.day, products);
+    const g = sandboxFaxOptions(s.seed, s.day, products, ch.faxPool, ch.priceMul, ch.qtyMul);
     const fax = { tag: `sb${s.day}`, buyer: g.buyer, product: g.product, fob: g.fob, text: `${BUYERS[g.buyer]!.contact} has work for you.`, optional: true, options: g.options };
     const d = pushDecision(s, {
       kind: 'fax',

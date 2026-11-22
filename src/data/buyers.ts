@@ -85,6 +85,15 @@ export const BUYERS: Record<string, BuyerDef> = {
     inspection: 'normal',
     colour: '#5d4037',
   },
+  atlantic: {
+    id: 'atlantic',
+    name: 'Atlantic Outfitters',
+    contact: 'Mr. Brooks',
+    habit: 'An American chain store. Huge orders, thin prices, compliance auditors with clipboards. Only after 2007.',
+    origin: 'USA',
+    inspection: 'normal',
+    colour: '#283593',
+  },
   golden: {
     id: 'golden',
     name: 'Golden Harbour Trading',

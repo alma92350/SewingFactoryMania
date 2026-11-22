@@ -4,6 +4,7 @@
  */
 import { createRng, pick, randInt } from '../core/rng';
 import { CHAPTER_BY_ID, type ChapterDef } from './chapters';
+import { faxPool, scenarioDef, decodeScenario, SEASON_TEXT, type SeasonId } from './scenario';
 import type { MachineType } from './products';
 import { PRODUCTS } from './products';
 
@@ -75,21 +76,24 @@ export function dailyDef(dateKey: number): ChapterDef & { modifier: DailyModifie
 export interface SandboxOptions {
   lines: number;
   seed: number;
+  /** Seasonal event (from today's date when started from the title screen). */
+  season?: SeasonId;
 }
 
 /** The endless Sandbox: lines of mixed machines, a generous crew, faxes every morning. */
 export function sandboxDef(opts: SandboxOptions): ChapterDef {
   const lines = Math.max(1, Math.min(4, opts.lines));
+  const season = opts.season ?? 'none';
   const line = (first: boolean): MachineType[] => [...(first ? (['cutting'] as MachineType[]) : []), L, L, L, L, L, L, O, O, O, O, B, T, 'qc'];
   return {
-    id: `sandbox-${lines}-${opts.seed}`,
+    id: `sandbox-${lines}-${opts.seed}${season !== 'none' ? `-${season}` : ''}`,
     index: 200,
     name: 'Sandbox',
     year: 1997,
-    place: `${lines} line${lines > 1 ? 's' : ''}, endless`,
+    place: `${lines} line${lines > 1 ? 's' : ''}, endless${season !== 'none' ? ` · ${SEASON_TEXT[season].name}` : ''}`,
     intro: 'Your own factory, as long as it lasts. Faxes arrive every morning from every buyer you know. There is no last day: keep the cash above zero and see how far you get.',
     days: 9999,
-    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting', 'leaders', 'morale', 'training', 'planning', 'merchandising'],
+    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting', ...(season === 'monsoon' ? (['power'] as const) : []), 'leaders', 'morale', 'training', 'planning', 'merchandising'],
     newSystems: [],
     stations: [],
     lines: Array.from({ length: lines }, (_, i) => ({ name: `Line ${'ABCD'[i]}`, stations: line(i === 0) })),
@@ -99,10 +103,14 @@ export function sandboxDef(opts: SandboxOptions): ChapterDef {
     rent: 12 * lines,
     applicants: 4 + lines,
     starText: ['Survive 5 days', 'Survive 10 days', 'Survive 20 days'],
-    script: [],
-    rainDays: [],
+    script: season === 'tet' ? [{ day: 3, minute: 7 * 60, kind: 'tet' }] : [],
+    rainDays: season === 'monsoon' ? Array.from({ length: 30 }, (_, i) => i * 2 + 1) : [],
     generator: true,
     applicantRoles: ['operator', 'mechanic', 'qc', 'cutter', 'leader', 'planner', 'merchandiser'],
+    ...(season !== 'none' ? { faxPool: faxPool(['hanil', 'sakuraya', 'formosa', 'golden', 'pearl'], [], [], season) } : {}),
+    priceMul: season === 'midautumn' ? 1.08 : 1,
+    qtyMul: season === 'christmas' ? 1.3 : 1,
+    ...(season === 'tet' ? { tetDay: 3, family2: CHAPTER_BY_ID.ch5!.family2 } : {}),
   };
 }
 
@@ -111,17 +119,21 @@ export function ensureChapter(id: string): ChapterDef | undefined {
   if (CHAPTER_BY_ID[id]) return CHAPTER_BY_ID[id];
   let def: ChapterDef | undefined;
   const daily = id.match(/^daily-(\d{8})$/);
-  const sandbox = id.match(/^sandbox-(\d)-(\d+)$/);
+  const sandbox = id.match(/^sandbox-(\d)-(\d+)(?:-(tet|monsoon|midautumn|christmas))?$/);
   if (daily) def = dailyDef(Number(daily[1]));
-  else if (sandbox) def = sandboxDef({ lines: Number(sandbox[1]), seed: Number(sandbox[2]) });
+  else if (sandbox) def = sandboxDef({ lines: Number(sandbox[1]), seed: Number(sandbox[2]), season: (sandbox[3] as SeasonId | undefined) ?? 'none' });
+  else if (id.startsWith('scn:')) {
+    const sc = decodeScenario(id.slice(4));
+    if (sc) return scenarioDef(sc);
+  }
   if (def) CHAPTER_BY_ID[id] = def;
   return def;
 }
 
 /** A generated fax for the sandbox: a buyer, a product some line can make, three quotes. */
-export function sandboxFaxOptions(rngSeed: number, day: number, products: string[]) {
+export function sandboxFaxOptions(rngSeed: number, day: number, products: string[], pool?: [string, string, boolean][], priceMul = 1, qtyMul = 1) {
   const rng = createRng(rngSeed * 1000 + day);
-  const buyers: [string, string, boolean][] = [
+  const buyers: [string, string, boolean][] = pool ?? [
     ['hanil', 'shirt', false],
     ['sakuraya', 'polo', false],
     ['formosa', 'jeans', false],
@@ -134,9 +146,9 @@ export function sandboxFaxOptions(rngSeed: number, day: number, products: string
   const usable = buyers.filter(([, p]) => products.includes(p));
   const [buyer, product, fob] = pick(rng, usable.length ? usable : buyers);
   const base: Record<string, number> = { shorts: 4.5, shirt: 8, polo: 12.5, jeans: 11.5, workwear: 20, baby: 9, padded: 30, yukata: 18 };
-  const qty = randInt(rng, 3, 9) * 100;
+  const qty = Math.round((randInt(rng, 3, 9) * 100 * qtyMul) / 100) * 100;
   const due = day + randInt(rng, 2, 4);
-  const price = base[product]!;
+  const price = Math.round(base[product]! * priceMul * 100) / 100;
   return {
     buyer,
     product,

@@ -107,6 +107,14 @@ export interface ChapterDef {
   scoreStars?: [number, number, number];
   /** Daily Challenge modifier. */
   modifier?: { id: string; name: string; text: string; emoji: string };
+  /** Generated chapters: who sends faxes ([buyer, product, fob], repeated = more often). */
+  faxPool?: [string, string, boolean][];
+  /** Generated chapters: price, quantity and wage multipliers (seasons, the 2007 era). */
+  priceMul?: number;
+  qtyMul?: number;
+  wageMul?: number;
+  /** Scenario modifiers (the Daily Challenge ones, chosen by the player). */
+  scenarioMods?: string[];
   /** Applicant roles available in this chapter. */
   applicantRoles: ('operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader' | 'planner' | 'merchandiser')[];
 }

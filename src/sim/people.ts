@@ -58,7 +58,7 @@ function makeApplicant(s: GameState, role: Role, name: string): Applicant {
   const traits: TraitId[] = [];
   if (role === 'operator' && rand(s.rng) < 0.6) traits.push(pick(s.rng, Object.keys(TRAITS) as TraitId[]));
   const avg = (skill.lockstitch + skill.overlock) / 2;
-  const wage = { mechanic: 2.2, qc: 1.7, cutter: 1.8, electrician: 2.4, leader: 2.8, planner: 3, merchandiser: 2.8, operator: r2(0.9 + avg * 0.9) }[role]!;
+  const wage = r2({ mechanic: 2.2, qc: 1.7, cutter: 1.8, electrician: 2.4, leader: 2.8, planner: 3, merchandiser: 2.8, operator: r2(0.9 + avg * 0.9) }[role]! * (chapterOf(s).wageMul ?? 1));
   return {
     id: `a${s.day}-${randInt(s.rng, 1000, 9999)}-${name}`,
     name,

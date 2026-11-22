@@ -8,7 +8,8 @@ export function starChecks(s: GameState): [boolean, boolean, boolean] {
   const ch = chapterOf(s);
   if (ch.scoreStars) {
     const n = s.orders.reduce((a, o) => a + o.finished, 0);
-    return [n >= ch.scoreStars[0], n >= ch.scoreStars[1], n >= ch.scoreStars[2]];
+    const alive = !s.failed;
+    return [alive && n >= ch.scoreStars[0], alive && n >= ch.scoreStars[1], alive && n >= ch.scoreStars[2]];
   }
   if (ch.generator) {
     const days = s.history.length;

@@ -155,10 +155,13 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
       s.workers.push(w);
     });
   }
-  // Daily Challenge modifiers
-  if (ch.modifier?.id === 'breakdowns') s.mods.breakdowns *= 2;
-  if (ch.modifier?.id === 'learning') for (const w of s.workers) for (const id of Object.keys(w.learn)) w.learn[id] = 0.4;
-  if (ch.modifier?.id === 'power' && s.power) s.power.cuts = [{ start: 10 * 60, end: 11 * 60 + 40 }];
+  // Daily Challenge modifiers (and the same modifiers chosen in a scenario)
+  const mods = [ch.modifier?.id, ...(ch.scenarioMods ?? [])];
+  if (mods.includes('breakdowns')) s.mods.breakdowns *= 2;
+  if (mods.includes('learning')) for (const w of s.workers) for (const id of Object.keys(w.learn)) w.learn[id] = 0.4;
+  if (mods.includes('power') && s.power) s.power.cuts = [{ start: 10 * 60, end: 11 * 60 + 40 }];
+  // the 2007 era: everyone earns more (prices are higher too)
+  if (ch.wageMul && ch.wageMul !== 1) for (const w of s.workers) w.wage = Math.round(w.wage * ch.wageMul * 100) / 100;
   if (ch.index > 2 && ch.index < 100 && campaign['ch2.ut'] === 'join') s.workers.push(makeWorker(CREW.ut!, tuning, null, tuning.shiftStart));
   if (ch.family && ch.family.when === 'start') pushFamily(s);
   return s;

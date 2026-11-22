@@ -1,6 +1,6 @@
 import { chance, rand } from '../core/rng';
 import { CREW } from '../data/people';
-import { has, workerById } from './selectors';
+import { chapterOf, has, workerById } from './selectors';
 import type { GameState, SimEvent, Worker } from './types';
 
 /**
@@ -29,7 +29,7 @@ export function nightlyMorale(s: GameState, overtimeToday: boolean): void {
     let d = welfareCount(s) * t.welfareMorale;
     d += overtimeToday ? -t.overtimeMorale : 0.015;
     if (w.fatigue > 0.6) d -= 0.03;
-    if (w.role === 'operator' && w.wage > 0) d += Math.max(-0.05, Math.min(0.05, (w.wage - marketWage(w)) * 0.15));
+    if (w.role === 'operator' && w.wage > 0) d += Math.max(-0.05, Math.min(0.05, (w.wage / (chapterOf(s).wageMul ?? 1) - marketWage(w)) * 0.15));
     if (s.campaign.cat === 'adopt') d += 0.01; // the factory cat
     w.morale = clamp01(w.morale + d);
   }
