@@ -1122,6 +1122,9 @@ export const VI: Record<string, string> = {
   '{p}: An American chain store. Huge orders, thin prices, compliance auditors with clipboards. Only after {n}.': '{p}: Một chuỗi cửa hàng Mỹ. Đơn khổng lồ, giá mỏng, kiểm toán viên tuân thủ cầm bìa kẹp hồ sơ. Chỉ sau năm {n}.',
 
   // ── Part II: 2002–2008
+  'Tap every roll that has flaws or a different shade from the reference. Bad rolls you flag are sent back and refunded.': 'Chạm vào mọi cây vải có lỗi hoặc khác màu so với mẫu chuẩn. Cây vải lỗi bạn đánh dấu sẽ được trả lại và hoàn tiền.',
+  'Roll {n}': 'Cây vải {n}',
+  'Rolls': 'Các cây vải',
   'Sewing for your shops': 'Đang may cho cửa hàng của bạn',
   'Collection finished': 'Bộ sưu tập đã may xong',
   'no vessel: the shops sell what is finished': 'không có tàu: cửa hàng bán những gì đã may xong',

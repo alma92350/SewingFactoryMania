@@ -221,3 +221,10 @@ body.eink .morale span { background: #000 !important; }
 .editor #scn-code { width: auto; flex: 1; }
 .editor fieldset { min-width: 0; }
 .title h3.part { margin: 14px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+
+/* Fabric inspection: every roll at once, big tiles, nothing moves under the finger */
+.fi-ref { display: flex; align-items: center; gap: 8px; justify-content: center; margin: 6px 0; }
+.swatch.mini { width: 44px; height: 44px; border-radius: 8px; display: inline-block; }
+.fi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px; margin: 8px 0; }
+.swatch.roll.tile { width: 100%; height: auto; aspect-ratio: 1; min-height: 64px; }
+.swatch.roll.tile.flagged::after { font-size: 36px; }

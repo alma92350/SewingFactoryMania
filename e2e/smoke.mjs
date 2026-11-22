@@ -166,6 +166,33 @@ for (const [name, opts] of [
   if (shots) await page.screenshot({ path: `${shots}/${name}-fabric.png` });
   check(`${name} ch3`, marker === true && shipments === 1, `markerSet=${marker} shipments=${shipments}`);
 
+  // ── Fabric inspection: every roll is a big toggle; a real tap (touch on the phone) flags it
+  await page.evaluate(() => {
+    const s = window.__app.state;
+    for (const sh of s.shipments) {
+      sh.arriveDay = s.day;
+      sh.arriveMinute = s.minute + 1;
+      sh.delayed = false;
+    }
+  });
+  await page.getByRole('tab', { name: /Line/ }).click();
+  await page.evaluate(() => document.querySelector('[data-action="speed"][data-arg="1"]').click());
+  const inspect = page.getByRole('button', { name: /Inspect them yourself/ });
+  await inspect.waitFor({ timeout: 10000 });
+  await inspect.click();
+  const tile = page.locator('.fi-grid [data-roll]').first();
+  await tile.waitFor();
+  const tb = await tile.boundingBox();
+  if (name === 'phone') await page.touchscreen.tap(tb.x + tb.width / 2, tb.y + tb.height / 2);
+  else await tile.click();
+  const pressed = await tile.getAttribute('aria-pressed');
+  const tiles = await page.locator('.fi-grid [data-roll]').count();
+  if (shots) await page.screenshot({ path: `${shots}/${name}-fabricgame.png` });
+  await page.locator('[data-mg="done"]').click();
+  await page.locator('[data-mg="ok"]').click();
+  const rejected = await page.evaluate(() => window.__app.state.warehouse.filter((r) => r.rejected).length);
+  check(`${name} fabric inspection`, pressed === 'true' && tiles >= 1 && tb.width >= 44 && rejected >= 1, `pressed=${pressed} tiles=${tiles} size=${Math.round(tb.width)} rejected=${rejected}`);
+
   // ── Chapter 4: two lines, overlay
   await page.goto(base);
   await page.locator('[data-action="start"][data-arg="ch4"]').click();

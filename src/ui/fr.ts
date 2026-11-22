@@ -13,6 +13,9 @@ export const FR_NAMES: Record<string, string> = {
 
 export const FR: Record<string, string> = {
   // ── Part II: 2002–2008
+  'Tap every roll that has flaws or a different shade from the reference. Bad rolls you flag are sent back and refunded.': 'Touchez chaque rouleau qui a des défauts ou une teinte différente de la référence. Les mauvais rouleaux signalés sont renvoyés et remboursés.',
+  'Roll {n}': 'Rouleau {n}',
+  'Rolls': 'Rouleaux',
   'Sewing for your shops': 'En couture pour vos boutiques',
   'Collection finished': 'Collection terminée',
   'no vessel: the shops sell what is finished': 'pas de navire : les boutiques vendent ce qui est fini',

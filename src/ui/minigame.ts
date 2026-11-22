@@ -1,4 +1,4 @@
-import { trHtml } from './i18n';
+import { tr, trHtml } from './i18n';
 
 /**
  * "Spot the Defect" (PRD §9): compare our sample with the buyer's approved polo and tap the
@@ -109,48 +109,47 @@ export interface RollView {
 }
 
 /**
- * Rolls unroll one after another; tap the bad ones (flaws, or a shade that does not match the
- * reference swatch). The whole shipment takes at most ~13 seconds.
+ * Fabric Inspection (PRD §9): the whole shipment is laid out as a grid of rolls; tap the bad ones
+ * (flaws, or a shade that does not match the reference swatch) before the time runs out (15 s).
+ * Every roll is a real toggle button: taps, clicks and the keyboard all work, and nothing moves
+ * under your finger.
  */
 export function playFabricInspection(root: HTMLElement, rolls: RollView[], fabric: string, onDone: (flagged: number[]) => void): void {
-  const per = Math.min(1300, 13000 / Math.max(1, rolls.length));
+  const limit = 15000;
   const flagged = new Set<number>();
-  let i = 0;
   let finished = false;
   root.hidden = false;
-  const shade = (c: RollView['condition']) => (c === 'offShade' ? `filter: hue-rotate(35deg) saturate(1.6) brightness(1.15)` : '');
+  const shade = (c: RollView['condition']) => (c === 'offShade' ? 'filter: hue-rotate(35deg) saturate(1.6) brightness(1.15);' : '');
   const spots = (r: RollView) =>
     r.condition === 'flawed'
       ? `<span class="flaw" style="left:${20 + ((r.id * 37) % 55)}%;top:${25 + ((r.id * 53) % 45)}%"></span><span class="flaw small" style="left:${10 + ((r.id * 71) % 70)}%;top:${15 + ((r.id * 29) % 60)}%"></span>`
       : '';
+  const tiles = rolls
+    .map((r, k) => `<button class="swatch roll tile" data-roll="${r.id}" aria-pressed="false" aria-label="Roll ${k + 1}" style="background-color:${fabric};${shade(r.condition)}">${spots(r)}</button>`)
+    .join('');
   root.innerHTML = trHtml(`<div class="card game" role="dialog" aria-labelledby="fi-title">
     <h2 id="fi-title">Inspect the rolls</h2>
-    <p class="muted small">Tap a roll if it has flaws or a different shade from the reference. Bad rolls you flag are sent back and refunded.</p>
-    <div class="fi"><figure><figcaption>Reference</figcaption><div class="swatch ref" style="background:${fabric}"></div></figure>
-    <figure><figcaption><span>Roll</span> <span id="fi-n">1</span>/${rolls.length}</figcaption><button id="fi-roll" class="swatch roll" aria-label="Flag this roll"></button></figure></div>
+    <p class="muted small">Tap every roll that has flaws or a different shade from the reference. Bad rolls you flag are sent back and refunded.</p>
+    <div class="fi-ref"><span class="swatch ref mini" style="background:${fabric}" aria-hidden="true"></span><span class="small"><b>Reference</b></span></div>
+    <div class="fi-grid" role="group" aria-label="Rolls">${tiles}</div>
     <div class="timer"><div id="fi-bar"></div></div>
-    <p class="small" id="fi-count">0 flagged</p></div>`);
-  const btn = root.querySelector<HTMLButtonElement>('#fi-roll')!;
+    <div class="row"><p class="small" id="fi-count">0 flagged</p><button class="primary" data-mg="done">Inspection done</button></div></div>`);
   const bar = root.querySelector<HTMLElement>('#fi-bar')!;
   const count = root.querySelector<HTMLElement>('#fi-count')!;
-  const nEl = root.querySelector<HTMLElement>('#fi-n')!;
-  const show = () => {
-    const r = rolls[i]!;
-    btn.setAttribute('style', `background:${fabric};${shade(r.condition)}`);
-    btn.innerHTML = spots(r);
-    btn.classList.toggle('flagged', flagged.has(r.id));
-    nEl.textContent = String(i + 1);
-  };
-  btn.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    const r = rolls[i];
-    if (!r || finished) return;
-    if (flagged.has(r.id)) flagged.delete(r.id);
-    else flagged.add(r.id);
-    btn.classList.toggle('flagged', flagged.has(r.id));
-    count.textContent = `${flagged.size} flagged`;
+  root.querySelectorAll<HTMLButtonElement>('[data-roll]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (finished) return;
+      const id = Number(btn.dataset.roll);
+      if (flagged.has(id)) flagged.delete(id);
+      else flagged.add(id);
+      const on = flagged.has(id);
+      btn.classList.toggle('flagged', on);
+      btn.setAttribute('aria-pressed', String(on));
+      count.textContent = tr(`${flagged.size} flagged`);
+    });
   });
   const end = () => {
+    if (finished) return;
     finished = true;
     const bad = rolls.filter((r) => r.condition !== 'good');
     const caught = bad.filter((r) => flagged.has(r.id)).length;
@@ -166,20 +165,15 @@ export function playFabricInspection(root: HTMLElement, rolls: RollView[], fabri
     };
     ok.focus();
   };
-  let start = performance.now();
-  show();
+  root.querySelector<HTMLButtonElement>('[data-mg="done"]')!.onclick = end;
+  const start = performance.now();
   const tick = (t: number) => {
     if (finished) return;
-    const k = Math.floor((t - start) / per);
-    if (k !== i) {
-      i = k;
-      if (i >= rolls.length) return end();
-      show();
-    }
-    bar.style.width = `${Math.max(0, 100 - ((t - start) / (per * rolls.length)) * 100)}%`;
+    const left = 1 - (t - start) / limit;
+    bar.style.width = `${Math.max(0, left * 100)}%`;
+    if (left <= 0) return end();
     requestAnimationFrame(tick);
   };
-  start = performance.now();
   requestAnimationFrame(tick);
 }
 
