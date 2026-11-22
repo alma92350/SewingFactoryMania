@@ -35,7 +35,8 @@ import { MARKETS } from '../data/markets';
 import { layoffBlocked, newCustomers } from '../sim/macro';
 import { AUDIT_CHECKS, auditChecks, quotaCost } from '../sim/us';
 import { FLIGHT_COST, SITE_NAME, sites } from '../sim/sites';
-import { cosmeticsHtml, epilogue } from './scrapbook';
+import { AD_COST, brandStock, COLLECTIONS, demandTonight, fullPriceShare, retailPrice } from '../sim/brand';
+import { cosmeticsHtml, epilogue, epilogue2 } from './scrapbook';
 import { metresInTransit, metresPerBundle, rollsSummary, rollsToBuy } from '../sim/sourcing';
 
 export type Tab = 'line' | 'orders' | 'fabric' | 'team' | 'book';
@@ -206,10 +207,28 @@ export function ordersTabHtml(s: GameState): string {
   return (
     `<div class="row buttons"><button data-action="overtime" aria-pressed="${s.overtime}" ${canOt ? '' : 'disabled'}>${s.overtime ? '✓ Overtime tonight until 19:00' : 'Overtime tonight until 19:00'}</button><span class="muted small">≈ ${money(premium)} extra wages, tired workers</span></div>` +
     (has(s, 'morale') ? `<div class="row small ${capped ? 'bad' : 'muted'}">1994 Labour Code: ${s.stats.overtimeDays}/${s.tuning.overtimeCap} overtime evenings used this month</div>` : '') +
+    brandHtml(s) +
     quotaHtml(s) +
     marketsHtml(s) +
     list
   );
+}
+
+/** Chapter 10: your own label: stock, sales, price and advertising. */
+function brandHtml(s: GameState): string {
+  if (!has(s, 'brand')) return '';
+  const b = s.brand;
+  if (!b) return '<h3>Your label</h3><p class="small muted">Choose the first collection to open your shops.</p>';
+  const c = COLLECTIONS.find((x) => x.id === b.collection)!;
+  const name = BUYERS.ownlabel!.name;
+  const price = (lvl: number, label: string) => `<button class="chip" data-action="price" data-arg="${lvl}" aria-pressed="${b.priceLevel === lvl}">${label}</button>`;
+  const ad = b.adUntil >= s.day ? '<span class="ok small">✓ <span>Advertisement running</span></span>' : `<button class="mini" data-action="advertise" ${s.cash < AD_COST ? 'disabled' : ''}>Advertise in the newspaper · $${AD_COST}</button>`;
+  return `<h3>Your label · ${esc(name)}</h3>
+    <p class="small">${esc(c.label)}: <b>${brandStock(s)}</b> <span>in the shops</span> · <span>sold</span> ${b.sold}/${c.qty} (${Math.round(fullPriceShare(s) * 100)}%) · <span>shop takings</span> ${money(b.revenue)}</p>
+    <p class="small muted">Shop price ${money(retailPrice(s))} · about ${Math.round(demandTonight(s))} pieces sell per night · last night ${b.soldToday}</p>
+    <div class="row"><span class="muted small">Price</span><div class="seg">${price(-1, 'Sale −15%')}${price(0, 'Normal')}${price(1, 'Premium +15%')}</div></div>
+    <div class="row">${ad}<span class="muted small">Demand +40% for two nights</span></div>
+    <p class="small muted">Whatever is left on the last night goes on sale at 60% off. The mill is paid at the end of the season.</p>`;
 }
 
 /** Chapter 8: US export quota, bought per order at a price that moves every night. */
@@ -238,7 +257,7 @@ function complianceHtml(s: GameState): string {
   const checks = auditChecks(s);
   const a = s.audit;
   const head = a.visits === 0 ? 'The auditor visits on day 3. Five of six must pass.' : a.passed ? `Audit passed: ${a.score} of 6.` : `Audit failed: ${a.score} of 6. She comes back on day 6.`;
-  return `<h3>Code of conduct</h3><p class="small ${a.passed === false ? 'bad' : 'muted'}">${head}</p><ul class="goals">${AUDIT_CHECKS.map((c) => `<li class="${checks[c.id] ? 'ok' : 'bad'}">${checks[c.id] ? '✓' : '✗'} ${esc(c.text)}</li>`).join('')}</ul>`;
+  return `<h3>Code of conduct</h3><p class="small ${a.passed === false ? 'bad' : 'muted'}">${head}</p><ul class="goals">${AUDIT_CHECKS.map((c) => `<li class="${checks[c.id] ? 'ok' : 'bad'}">${checks[c.id] ? '✓' : '✗'} <span>${esc(c.text)}</span></li>`).join('')}</ul>`;
 }
 
 /** Chapter 7: the shock and the search for new customers. */
@@ -468,7 +487,7 @@ export function reportHtml(s: GameState): string {
   const o = activeOrder(s);
   const ch0 = s.chapterId === 'ch0' ? `<tr><td>Shorts packed</td><td><b>${o?.finished ?? 0}</b> (★ 290 · ★★ 340 · ★★★ 370)</td></tr>` : '';
   return `<div class="card report" role="dialog" aria-labelledby="rep-title"><div class="notebook"><h2 id="rep-title">Day ${s.day} · shift report</h2><table>
-    ${ch0}<tr><td>Pieces packed today</td><td>${h?.pieces ?? 0}</td></tr><tr><td>Line efficiency</td><td>${Math.round((h?.efficiency ?? 0) * 100)}%</td></tr><tr><td>Breakdowns</td><td>${h?.breakdowns ?? 0}</td></tr>${money_}</table>
+    ${ch0}${s.brand ? `<tr><td>Sold in your shops</td><td>${s.brand.soldToday}</td></tr>` : ''}<tr><td>Pieces packed today</td><td>${h?.pieces ?? 0}</td></tr><tr><td>Line efficiency</td><td>${Math.round((h?.efficiency ?? 0) * 100)}%</td></tr><tr><td>Breakdowns</td><td>${h?.breakdowns ?? 0}</td></tr>${money_}</table>
     ${has(s, 'morale') ? `<p class="small">Average morale ${moraleBar(s.workers.reduce((a, w) => a + w.morale, 0) / Math.max(1, s.workers.length))} · <span>welfare ${welfareCount(s)}/3</span></p>` : ''}
     ${s.tet && s.tet.returned + s.tet.left.length > 0 ? `<p class="small">After Tết: ${s.tet.returned} came back, ${s.tet.left.length} stayed home.</p>` : ''}
     ${s.negativeDays > 0 ? '<p class="bad">You are in the red. One more day like this and the workshop closes.</p>' : ''}</div>
@@ -495,8 +514,8 @@ export function chapterEndHtml(s: GameState, hasNext: boolean, unlocked: string[
     <div class="bigstars" aria-label="${n} of 3 stars">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</div><p>${verdict}</p><ul class="goals">${lines}</ul>
     ${has(s, 'orders') ? `<p>Final cash: <b>${money(s.cash)}</b></p>` : ''}${shareBox}${ach}${
       s.chapterId === 'ch7' && n > 0 ? `<h3>Epilogue</h3>${epilogue(s.campaign).map((t) => `<p>${esc(t)}</p>`).join('')}` : ''
-    }</div>
-    <div class="buttons"><button data-action="title">Menu</button>${s.chapterId === 'ch7' && n > 0 ? '<button class="primary" data-action="scrapbook">The scrapbook</button>' : ''}${ch.scoreStars ? '' : '<button data-action="replay">Replay</button>'}${hasNext && n > 0 && !ch.scoreStars ? '<button class="primary" data-action="next">Next chapter</button>' : ''}</div></div>`;
+    }${s.chapterId === 'ch10' && n > 0 ? `<h3>Epilogue</h3>${epilogue2(s.campaign).map((t) => `<p>${esc(t)}</p>`).join('')}` : ''}</div>
+    <div class="buttons"><button data-action="title">Menu</button>${s.chapterId === 'ch7' && n > 0 ? '<button class="primary" data-action="scrapbook">The scrapbook</button>' : ''}${s.chapterId === 'ch10' && n > 0 ? '<button class="primary" data-action="scrapbook">The scrapbook</button>' : ''}${ch.scoreStars ? '' : '<button data-action="replay">Replay</button>'}${hasNext && n > 0 && !ch.scoreStars ? '<button class="primary" data-action="next">Next chapter</button>' : ''}</div></div>`;
 }
 
 export interface TitleExtras {
@@ -529,7 +548,8 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink
   const chapters = CHAPTERS.map((c, i) => {
     const unlocked = i === 0 || (p.stars[CHAPTERS[i - 1]!.id] ?? 0) > 0;
     const st = p.stars[c.id] ?? 0;
-    return `<button class="chapter" data-action="start" data-arg="${c.id}" ${unlocked ? '' : 'disabled'}><span class="num">${c.index}</span><span><b>${esc(c.name)}</b><small>${c.year} · ${esc(c.place)}</small></span><span class="st">${
+    const part = c.index === 8 ? `<h3 class="part">Part II · 2002–2008</h3>` : c.index === 0 ? `<h3 class="part">Part I · 1992–1997</h3>` : '';
+    return `${part}<button class="chapter" data-action="start" data-arg="${c.id}" ${unlocked ? '' : 'disabled'}><span class="num">${c.index}</span><span><b>${esc(c.name)}</b><small>${c.year} · ${esc(c.place)}</small></span><span class="st">${
       unlocked ? `${'★'.repeat(st)}${'☆'.repeat(3 - st)}` : '🔒'
     }</span></button>`;
   }).join('');

@@ -102,6 +102,10 @@ export const TIPS: Record<string, Tip> = {
     title: 'One of you, two cities.',
     body: 'You can only seat people, change jobs, fix machines and hire where you stand. The buttons at the top of the map switch between <b>Saigon</b> and <b>Hà Nội</b>; the Line tab books a flight (three hours, $40). Give each line a leader and each city a mechanic, and the city you are not in keeps working.',
   },
+  brand: {
+    title: 'Your own name on the label.',
+    body: 'Your collection sews like any order, but nobody pays when it ships: your <b>shops</b> sell it every night (Orders tab). A lower price sells more, a higher one earns more per piece, and a newspaper advertisement fills the shops for two nights. Defects come back from customers. What is left at the end goes at 60% off.',
+  },
   inspection: {
     title: 'After the inspection.',
     body: 'The defect report shows which operation, which seamstress and which cause made the defects. Learning and worn needles are the usual suspects; QC catches most of the rest.',
@@ -140,5 +144,7 @@ export const GLOSSARY: { term: string; text: string }[] = [
   { term: 'Severance', text: 'Money paid to someone you let go. In the game: a week of wages.' },
   { term: 'Quota', text: 'A limit on how many garments of a category a country may export to the United States; factories buy the right to ship, per dozen.' },
   { term: 'Code of conduct', text: 'A buyer’s rules for the factories that sew for it: hours, safety, wages, no child labour. Checked by audits.' },
+  { term: 'Own label', text: 'Clothes sold under the factory’s own brand, in its own shops, instead of sewn for a foreign buyer.' },
+  { term: 'Markdown', text: 'Selling leftover stock at a discount at the end of the season.' },
   { term: '1997 crisis', text: 'The Asian financial crisis: from July 1997 the baht, the rupiah and the won fell, and orders vanished.' },
 ];

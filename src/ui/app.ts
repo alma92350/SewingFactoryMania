@@ -372,6 +372,7 @@ export class App {
     if (has(s, 'quota') && s.orders.some((o) => o.buyer === 'atlantic')) this.queueTip('quota');
     if (has(s, 'compliance')) this.queueTip('compliance');
     if (s.director) this.queueTip('sites');
+    if (s.brand) this.queueTip('brand');
   }
 
   // ───────────────────────────── input
@@ -723,6 +724,12 @@ export class App {
         return;
       case 'travel':
         this.command({ type: 'travel', site: arg });
+        return;
+      case 'price':
+        this.command({ type: 'price', level: Number(arg) });
+        return;
+      case 'advertise':
+        this.command({ type: 'advertise' });
         return;
       case 'policy': {
         const [quote, extras] = arg.split(':');

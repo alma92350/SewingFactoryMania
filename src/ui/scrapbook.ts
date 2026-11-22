@@ -19,6 +19,7 @@ const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 /** Label of a campaign choice, from the chapter data ("ch5.scissors=lan" → "Give them to Lan"). */
 export function choiceLabel(flag: string, id: string): string | null {
   if (flag === 'cat') return id === 'adopt' ? 'Adopted the factory cat' : 'Shooed the cat away';
+  if (flag === 'ch9.betterNorth') return null;
   for (const c of CHAPTERS) {
     for (const f of [c.family, c.family2]) if (f?.flag === flag) return f.options.find((o) => o.id === id)?.label ?? null;
   }
@@ -58,6 +59,16 @@ export function epilogue(campaign: Record<string, string>): string[] {
   return out;
 }
 
+/** Part II's ending (Chapter 10). */
+export function epilogue2(campaign: Record<string, string>): string[] {
+  const out: string[] = [];
+  out.push(campaign['ch9.north'] === 'ut' ? 'Út stayed in Hà Nội, married a teacher from Nam Định, and runs the northern factory better than you ever did.' : 'Mr. Thắng retired in 2012; his apprentices still run the Hà Nội lines his way.');
+  out.push(campaign['ch10.name'] === 'lan' ? 'Lan & Co. is in every shopping centre in Saigon. Lan, now seventy, refuses to wear anything else.' : 'Sài Gòn 1979 dresses three generations of the same families. Má keeps the first shirt in a frame.');
+  out.push(campaign['ch8.birthday'] === 'afternoon' ? 'Everyone still remembers the afternoon the factory closed for Má’s seventieth birthday.' : 'The birthday dinner after work became a tradition: every year, the whole factory eats together.');
+  out.push('The workshop with six machines is a museum now. The children of your first seamstresses come to see where it started.');
+  return out;
+}
+
 export function scrapbookHtml(pages: Record<string, ScrapPage>, campaign: Record<string, string>): string {
   const done = CHAPTERS.filter((c) => pages[c.id]);
   const photos = done
@@ -67,7 +78,7 @@ export function scrapbookHtml(pages: Record<string, ScrapPage>, campaign: Record
         <div class="small">${p.crew.map(esc).join(', ')}</div>${p.choices.map((t) => `<div class="small muted">✎ <span>${esc(t)}</span></div>`).join('')}</figcaption></figure>`;
     })
     .join('');
-  const end = pages.ch7 ? `<h3>Epilogue</h3>${epilogue(campaign).map((t) => `<p>${esc(t)}</p>`).join('')}` : '';
+  const end = (pages.ch7 ? `<h3>Epilogue</h3>${epilogue(campaign).map((t) => `<p>${esc(t)}</p>`).join('')}` : '') + (pages.ch10 ? `<h3>Epilogue · Part II</h3>${epilogue2(campaign).map((t) => `<p>${esc(t)}</p>`).join('')}` : '');
   return `<div class="card scrapbook" role="dialog" aria-labelledby="sb-title"><h2 id="sb-title">The factory scrapbook</h2>
     ${done.length ? `<div class="photos">${photos}</div>${end}` : '<p class="muted">Finish a chapter to add its photo.</p>'}
     <div class="buttons"><button class="primary" data-action="title">Menu</button></div></div>`;

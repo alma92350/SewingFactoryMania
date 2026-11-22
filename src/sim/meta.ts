@@ -88,6 +88,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'storm', name: 'After the Storm', text: 'Finish Chapter 7 with at least one star.', check: (s) => s.chapterId === 'ch7' && stars(s) >= 1 },
   { id: 'nobody', name: 'Nobody Left Behind', text: 'Finish Chapter 7 without letting anyone go.', check: (s) => s.chapterId === 'ch7' && stars(s) >= 1 && (s.stats.layoffs ?? 0) === 0 },
   { id: 'cat', name: 'The Cat Stays', text: 'Finish Chapter 7 with the factory cat.', check: (s) => s.chapterId === 'ch7' && stars(s) >= 1 && s.campaign.cat === 'adopt' },
+  { id: 'audit', name: 'Clean Audit', text: 'Pass the compliance audit on the first visit.', check: (s) => s.audit?.firstPassed === true },
+  { id: 'twocities', name: 'Two Cities', text: 'Finish Chapter 9 with at least one star and no more than two flights.', check: (s) => s.chapterId === 'ch9' && stars(s) >= 1 && (s.stats.flights ?? 0) <= 2 },
+  { id: 'label', name: 'Made in Saigon', text: 'Sell your whole collection at full price.', check: (s) => !!s.brand && s.brand.markdownSold === 0 && s.brand.sold > 0 && s.orders.some((o) => o.tag === 'brand' && o.status === 'shipped') },
+  { id: 'part2', name: 'Thirty Years', text: 'Finish Chapter 10 with at least one star.', check: (s) => s.chapterId === 'ch10' && stars(s) >= 1 },
   { id: 'maker', name: 'Scenario Maker', text: 'Finish a scenario from the editor with at least one star.', check: (s) => s.chapterId.startsWith('scn:') && stars(s) >= 1 },
   { id: 'thursday', name: 'The Ship Leaves Thursday', text: 'Earn a star on the hardest difficulty.', check: (s) => s.difficulty === 'thursday' && stars(s) >= 1 && !CHAPTER_BY_ID[s.chapterId]?.generator },
 ];

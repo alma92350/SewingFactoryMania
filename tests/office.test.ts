@@ -86,7 +86,7 @@ describe('Chapter 6: the office', () => {
 });
 
 describe('workload stays flat as the factory grows (PRD Phase 3)', () => {
-  it('bot actions per minute in Chapters 3–7 stay within ±20% of Chapter 2', () => {
+  it('bot actions per minute in Chapters 3–10 stay within ±20% of Chapter 2', () => {
     const rate = (ch: string) =>
       SEEDS.slice(0, 4).reduce((acc, seed) => {
         const s = createChapter(ch, seed);
@@ -98,7 +98,7 @@ describe('workload stays flat as the factory grows (PRD Phase 3)', () => {
         return acc + a / s.stats.dayMinutes;
       }, 0) / 4;
     const base = rate('ch2');
-    for (const ch of ['ch3', 'ch4', 'ch5', 'ch6', 'ch7']) {
+    for (const ch of ['ch3', 'ch4', 'ch5', 'ch6', 'ch7', 'ch8', 'ch9', 'ch10']) {
       const r = rate(ch);
       expect(r, ch).toBeGreaterThanOrEqual(base * 0.8);
       expect(r, ch).toBeLessThanOrEqual(base * 1.2);

@@ -8,6 +8,7 @@ import { computeLayout } from '../src/render/layout';
 import { Renderer, type Overlay } from '../src/render/renderer';
 import { makeBot } from '../src/sim/autopilot';
 import { endDay, step } from '../src/sim/sim';
+import { applyCommand } from '../src/sim/commands';
 import { createChapter } from '../src/sim/state';
 import type { GameState } from '../src/sim/types';
 import { segmentsOfHtml } from '../src/ui/i18n';
@@ -117,9 +118,12 @@ export function harvest(): { html: string[]; canvas: string[] } {
     add(introHtml(ch.id));
     // the first cards of the chapter, before anyone (a merchandiser) answers them
     const peek = createChapter(ch.id, 7);
-    for (let i = 0; i < 3; i++) {
+    peek.workers = peek.workers.filter((w) => w.role !== 'merchandiser' && w.role !== 'planner');
+    for (let i = 0; i < 4; i++) {
       step(peek);
       for (const d of peek.decisions) add(decisionHtml(peek, d));
+      // a family scene at the start freezes the world: answer it to reach the first faxes
+      for (const d of [...peek.decisions]) if (d.kind === 'family') applyCommand(peek, { type: 'decide', decision: d.id, option: d.options[0]!.id });
     }
     for (const family of [undefined, 'second']) {
       const s = createChapter(ch.id, 7);
