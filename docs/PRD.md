@@ -1,6 +1,6 @@
 # SewingFactoryMania — Product Requirements Document (v0.1, phased)
 
-*Status: draft for decision · Date: 2026-11-22 · Inspired by [DataCenterMania](https://github.com/alma92350/DataCenterMania) (its PRD v0.2, PRD v2.0 and product review).*
+*Status: draft v0.2 (open questions 1, 7, 8 decided: D13–D15) · Date: 2026-11-22 · Inspired by [DataCenterMania](https://github.com/alma92350/DataCenterMania) (its PRD v0.2, PRD v2.0 and product review).*
 
 > A management game for the browser (desktop and mobile). It is **1992 in Saigon**. You inherit a family workshop of six sewing machines in a shophouse, and by 1997 you run an export factory in an industrial zone, sewing shirts, jeans, padded jackets and yukata for buyers in **Korea, Japan, Hong Kong, Taiwan and mainland China**. You win faxed orders, source fabric and trims, balance sewing lines, pass the buyer's inspection and make the ship before the vessel leaves. Mostly by putting the right worker on the right machine at the right moment.
 
@@ -276,9 +276,9 @@ Buyer, contact, product, quantity (in **dozens**), size/colour breakdown, **pric
 | *Cô Mai's School Uniforms* (local) | Cô Mai, the headmistress; pays in cash, brings cakes | Tutorial | Small, forgiving, Ch0 only |
 | *Hanil Apparel Buying Office* (Korea) | Ms. Park; calls at 21:00 with "one more thing" | Volume | CMT, big lots, tight ships, padded jackets in autumn |
 | *Sakura-ya Department Store* (Japan) | Mr. Watanabe; brings a ruler and white gloves | Quality | Small lots, many sizes, strict inspection, pays premium, very loyal |
-| *Golden Harbour Trading* (Hong Kong) | Mr. Leung; loves karaoke, hates surprises | Price/Change | FOB, squeezes price, changes colours mid-order, big volumes |
+| *Golden Harbour Trading* (Hong Kong) | Mr. Leung; loves karaoke, hates surprises; introduced by Uncle Sáu (§11.1) | Price/Change | Arrives early: small CMT trial orders from Ch1, then FOB from Ch3; squeezes price, changes colours mid-order, big volumes |
 | *Formosa Threadworks* (Taiwan) | Mrs. Lin; also sells you machines | Partner | Mid orders, offers machine financing |
-| *Pearl River Garments* (mainland China) | Mr. Zhou; subcontracts overflow to you | Overflow | Sudden urgent orders, low price, short deadlines (from Ch6) |
+| *Pearl River Garments* (mainland China) | Mr. Zhou; subcontracts overflow to you | Overflow | Arrives late (Ch6): sudden urgent orders, low price, short deadlines |
 
 ### 5.3 Products (unlocked by chapter)
 
@@ -407,7 +407,7 @@ Rule: **≤ 2 new systems per chapter**, each taught by Introduce → Practise �
 | Ch | Year | Name | Place | New systems | Twist | Win (★) |
 |---|---|---|---|---|---|---|
 | 0 | 1992 | **The Family Workshop** (tutorial, 1 shift) | Shophouse, 6 machines | Assign, bundle flow | A machine jams before Cô Mai's pickup | Deliver 200 school shorts |
-| 1 | 1992 | **The First Fax** | Shophouse + back room, 12 machines | Orders & vessel, hiring | Ms. Park adds 20% quantity | Ship the Korean shirt order on time |
+| 1 | 1992 | **The First Fax** | Shophouse + back room, 12 machines | Orders & vessel, hiring | Ms. Park adds 20% quantity while Mr. Leung's trial order is due the same week | Ship the Korean shirt order on time |
 | 2 | 1993 | **The Man with the Ruler** | Rented hall, 1 line of 20 | Quality & inspection, mechanic | Inspection on a day the best seamstress is sick | Pass a Sakura-ya inspection |
 | 3 | 1994 | **The Fabric Hunt** | Hall + warehouse + cutting room | Sourcing (FOB), cutting & fabric inspection | Wrong colour from Kowloon | Profit $X on an FOB order |
 | 4 | 1994 | **Rain and Darkness** | 2 lines | Power cuts & generator, Line Leader | Flood in the street + vessel day | Two orders on time in rainy season |
@@ -415,6 +415,41 @@ Rule: **≤ 2 new systems per chapter**, each taught by Introduce → Practise �
 | 6 | 1996 | **The Export Zone** | New factory in an EPZ, 6 lines | Multi-line planning (Planner, Merchandiser), padded jackets | Korean autumn peak + Mr. Zhou's overflow | 5 buyers, all ships on time |
 | 7 | 1997 | **The Storm from the North** (finale) | Full factory | Macro shock (orders vanish), diversification | Korean orders drop 60% overnight | Survive the year with no layoffs (★★★: grow) |
 | ∞ | — | **Sandbox** | Choose factory size, year, buyers | Everything | Director | High score / years survived |
+
+### 11.1 Family storyline (decided: yes, because it changes the game)
+
+The director is the eldest child of **Má**, who opened the shophouse workshop in 1979. The family is a light narrative layer of **1–2 scenes per chapter**, shown at lunch or in the shift report, never during a crisis. It is content, not a new system: every choice changes values in systems the player already knows, so the "≤ 2 new systems per chapter" rule still holds.
+
+**Rules**
+- Every scene ends with **one choice of 2–3 options**, and every option has a **visible game effect** stated on the card before choosing (no hidden traps).
+- No option is strictly best: each trades cash, time, morale, buyers or a unique worker.
+- Skipping a scene picks the neutral option; the campaign stays winnable on every path (bot-tested across all choice combinations).
+- Effects are logged in the factory scrapbook, so players can see how the family shaped the factory.
+
+**Family members and their mechanical role**
+
+| Character | Role in the story | Game effect |
+|---|---|---|
+| **Má** (mother, founder) | Retires in Ch0, stays upstairs, still knows every customer from before | **Family loan** once per chapter (cash now, repaid from profits; missing a repayment lowers Má's trust and removes the next loan). Her visits to the floor give a morale boost to long-serving workers |
+| **Út** (youngest sibling) | Finishes school in 1993 | **Ch2 choice:** join the factory now (a unique helper with the *Fast Learner* trait who becomes a free Merchandiser in Ch6) **or** study in Osaka (absent until Ch6, then returns: Sakura-ya reputation +1★, unlocks yukata orders a chapter early, Japanese faxes answered automatically) |
+| **Uncle Sáu** (in Hong Kong since 1979) | Writes letters; knows traders in Kowloon | **Ch1:** introduces Mr. Leung (Golden Harbour's trial orders). **Ch3:** can vouch for you (Kowloon Fabric House lead time −2 days) at the cost of a favour later (a rush order you cannot refuse in Ch6) |
+| **Bác Tư** (mentor, Má's old tailor) | Delivers tips; slowly hands over | Tips and Handbook. **Ch5:** retires; the player chooses which senior worker inherits his scissors (that worker gets +1★ in every skill and becomes Line Leader at half salary) |
+| **The director's spouse/partner** (optional name and gender chosen at start) | Works as a teacher | **Ch5 Tết scene:** go home for Tết (the factory runs one shift on autopilot; director morale aura +, family trust +) or stay (one extra shift of output, no aura in Ch6) |
+
+**Scenes per chapter (proposed)**
+
+| Ch | Scene | Choice → effect |
+|---|---|---|
+| 0 | Má hands over the keys | Keep Má's old machines (free, slower) or sell them for a better one (cash −, speed +) |
+| 1 | A letter from Uncle Sáu | Accept Mr. Leung's trial order (more work this week, new buyer) or decline (calmer chapter, Golden Harbour arrives only in Ch3) |
+| 2 | Út's future | Join the factory or study in Osaka (see above) |
+| 3 | The family loan | Borrow to buy a cutting table now or wait two orders |
+| 4 | Flood in the old street | Use the trucks to help neighbours move stock (one lost afternoon, local hiring +) or keep producing |
+| 5 | Tết at home; Bác Tư retires | See above |
+| 6 | Út comes back (or is promoted) | Merchandiser assignment; Uncle Sáu's favour comes due |
+| 7 | 1997: Má's advice | "Never lay off people who built this" (no-layoff path, hard) or "Keep the factory alive" (shrink a line, easier) — both can win; ★★★ needs the first |
+
+### 11.2 Disclosure
 
 **Disclosure:** panels appear only when unlocked; first-time tips by the mentor **Bác Tư** (an old tailor who taught the director's mother), short and funny; the **Handbook** replays every tip and explains industry terms.
 
@@ -521,6 +556,7 @@ e2e/      Playwright, desktop + phone
 **New tests specific to this game:**
 - *Line math:* line output = bottleneck, property tested.
 - *Fair play wins:* a bot that maximises overtime with no welfare loses to the fair bot over every chapter from Ch5.
+- *Family paths:* the bot wins every chapter on default difficulty for every combination of family choices, and every choice changes at least one measured outcome.
 - *Traceable defects:* every failed inspection has ≥ 1 cause the player could have seen.
 - *Rhythm sync:* audio layers derive from sim output only (no audio state in the sim).
 
@@ -542,14 +578,14 @@ e2e/      Playwright, desktop + phone
 
 ## 19. Risks & Open Questions
 
-1. **Sensitivity of labour history.** Mitigated by D7, D12, a Vietnamese cultural reviewer, and playtests with people who worked in garment factories. *Open:* include an optional "real stories" Handbook page with credited interviews?
+1. **Sensitivity of labour history.** Mitigated by D7, D12, a Vietnamese cultural reviewer, and playtests with people who worked in garment factories. ~~Real stories page~~ **Decided (D15):** no real interviews in the game; the Handbook covers game terms and fictional characters only.
 2. **Line view on a phone.** 25 stations is dense. LOD: grouped operations at low zoom, expand on tap.
 3. **Production math feels like a spreadsheet.** Mitigation: piles, rhythm and colour carry the information; numbers only on tap.
 4. **Too many order steps.** Lifecycle is staged by chapter; CMT orders hide sourcing until Ch3.
 5. **Historical accuracy vs fun.** History is a backdrop, never a quiz. Dates/events reviewed for accuracy; fictional companies only.
 6. **Audio rhythm on low-end phones.** Fallback: simplified loop; tested on the throttled-phone probe.
-7. *Open:* should the director have a family storyline (mother's workshop → daughter/son director)? Proposed yes, light, 1–2 scenes per chapter.
-8. *Open:* Chinese buyer split — Hong Kong (Ch1+) and mainland overflow (Ch6). Confirm.
+7. ~~Family storyline~~ **Decided (D13):** yes, because every scene changes the game (§11.1). Risk: branching choices multiply balance cases; mitigated by bot tests over every choice combination.
+8. ~~Chinese buyer split~~ **Decided (D14):** Hong Kong early (trial CMT orders in Ch1, FOB from Ch3), mainland overflow late (Ch6).
 
 ---
 
@@ -571,6 +607,7 @@ Every phase keeps DCM's discipline: tests first, bot guardrails in CI, phone e2e
 ## Phase 1 — "The Family Workshop" (MVP vertical slice: Ch0–Ch2, ~8 weeks)
 
 - Chapters 0–2: assign, bundles, orders & vessel, hiring, quality & inspection, mechanic.
+- Family scenes for Ch0–Ch2 (Má, Uncle Sáu, Út's choice) with their effects; Golden Harbour trial CMT order in Ch1.
 - Products: school shorts, basic shirt, polo. Buyers: Cô Mai, Hanil (Ms. Park), Sakura-ya (Mr. Watanabe).
 - Fax inbox with quote cards; order board with vessel; live money and margins.
 - Final inspection scene + defect post-mortem; Spot the Defect micro-game.
@@ -584,7 +621,7 @@ Every phase keeps DCM's discipline: tests first, bot guardrails in CI, phone e2e
 
 - Ch3: FOB orders, supplier cards, shipments mini-map, warehouse, cutting room; Fabric Inspection and Marker Puzzle micro-games.
 - Ch4: power cuts & generator, rain/flood events, second line, **Line Leader** automation.
-- Products: workwear, jeans. Buyers: Golden Harbour (Mr. Leung), Formosa (Mrs. Lin).
+- Products: workwear, jeans. Buyers: Golden Harbour moves to FOB orders (Mr. Leung), Formosa (Mrs. Lin). Family scenes Ch3–Ch4 (family loan, the flood).
 - **Full Vietnamese localisation**; cultural review pass.
 - Overlays (bottleneck, quality, heat); e-ink mode.
 
@@ -592,6 +629,7 @@ Every phase keeps DCM's discipline: tests first, bot guardrails in CI, phone e2e
 
 ## Phase 3 — "Before Tết" (Ch5–Ch6, ~8 weeks)
 
+- Family scenes Ch5–Ch6 (Tết at home, Bác Tư's scissors, Út returns, Uncle Sáu's favour).
 - Ch5: full people system (morale, turnover, Tết return, 13th-month bonus, Labour Code overtime cap), training/mentoring, welfare upgrades.
 - Ch6: Export Zone factory with up to 6 lines; Production Planner and Merchandiser; padded jackets, baby wear, yukata; Pearl River overflow orders.
 - Achievements, career title, Daily Challenge with share line; Sandbox mode.
@@ -600,7 +638,7 @@ Every phase keeps DCM's discipline: tests first, bot guardrails in CI, phone e2e
 
 ## Phase 4 — "1997" (finale + polish, ~6 weeks)
 
-- Ch7 finale: macro shock, diversification, ending scrapbook.
+- Ch7 finale: macro shock, diversification, Má's advice scene, ending scrapbook showing the family's choices.
 - Difficulty "Ship Leaves Thursday"; ★★★ tuning; factory cat and cosmetics; radio songs.
 - Accessibility audit (axe-core clean), French localisation, Handbook complete, performance pass.
 
@@ -646,3 +684,6 @@ Scenario editor and share codes; multiple factories (Saigon + Hà Nội); a dome
 | D10 | One shift ≈ 6–8 min; DCM guardrails in CI |
 | D11 | Automation by hiring (Line Leader, Planner, Merchandiser) |
 | D12 | Out of scope list (no bribery, no real brands, no exploitation wins, no 3D/multiplayer/backend) |
+| D13 | Family storyline: yes, 1–2 scenes per chapter, every choice has a visible game effect, all paths winnable (§11.1) |
+| D14 | Hong Kong buyers early (trial CMT in Ch1, FOB from Ch3); mainland China overflow late (Ch6) |
+| D15 | No real-interview "stories" page; Handbook stays game terms and fictional characters |
