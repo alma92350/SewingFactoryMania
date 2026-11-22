@@ -15,6 +15,9 @@ import { ensureChapter, sandboxDef } from '../data/generated';
 import { CHAPTER_BY_ID } from '../data/chapters';
 import { cosmetic, type CosmeticSlot } from '../data/cosmetics';
 import { isCampaignChapter, scrapbookHtml, scrapPage } from './scrapbook';
+import { DEFAULT_SCENARIO, decodeScenario, encodeScenario, scenarioDef, seasonOf, type Scenario } from '../data/scenario';
+import { readScenarioForm, scenarioEditorHtml } from './editor';
+import { prepareScenario } from '../sim/meta';
 import { playFabricInspection, playMarker, playSpotTheDefect } from './minigame';
 import { PRODUCTS } from '../data/products';
 import { shipmentRolls } from '../sim/sourcing';
@@ -54,6 +57,7 @@ export class App {
   private overlayMode: Overlay = 'none';
   private visibleLines: number[] = [0];
   private unlocked: string[] = [];
+  private scn: Scenario = DEFAULT_SCENARIO;
   private share = '';
   private lastDraw = 0;
   private renders = { top: '', panel: '', overlay: '' };
@@ -101,7 +105,14 @@ export class App {
       new MutationObserver(sync).observe(this.overlay, { attributes: true, attributeFilter: ['hidden'] });
       sync();
     }
-    this.showTitle();
+    this.scn = this.progress.lastScenario ?? DEFAULT_SCENARIO;
+    const shared = new URLSearchParams(location.search).get('scenario');
+    const sc = shared ? decodeScenario(shared) : null;
+    if (sc) {
+      this.scn = sc;
+      this.showEditor('A scenario was shared with you. Check it, then press Play.');
+    } else this.showTitle();
+    if (shared && !sc) this.toast('That scenario code is damaged or incomplete.');
     requestAnimationFrame((t) => this.frame(t));
   }
 
@@ -142,6 +153,32 @@ export class App {
     this.unlocked = [];
     this.share = '';
     logEvent(!!this.progress.log, { e: 'chapterStart', ch: id });
+  }
+
+  private showEditor(message = ''): void {
+    if (this.s && this.s.phase !== 'done') saveGame(this.s);
+    this.s = null;
+    document.body.classList.add('at-title');
+    this.overlay.hidden = false;
+    this.overlay.innerHTML = trHtml(scenarioEditorHtml(this.scn, message));
+    this.renders.overlay = '';
+  }
+
+  private readEditor(): void {
+    if (this.overlay.querySelector('.editor')) this.scn = readScenarioForm(this.overlay, this.scn);
+    this.progress.lastScenario = this.scn;
+    saveProgress(this.progress);
+  }
+
+  private shareLink(): string {
+    return `${location.origin}${location.pathname}?scenario=${encodeScenario(this.scn)}`;
+  }
+
+  private copy(text: string, done: string): void {
+    navigator.clipboard?.writeText(text).then(
+      () => this.toast(done),
+      () => this.toast(text),
+    );
   }
 
   /** Change language; a dictionary that is not loaded yet arrives as its own chunk, then everything re-renders. */
@@ -357,6 +394,21 @@ export class App {
       this.action(el.dataset.action!, el.dataset.arg ?? '');
     });
 
+    // the scenario editor: keep the share code current; era and season redraw the form
+    this.overlay.addEventListener('change', (e) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest('.editor')) return;
+      this.readEditor();
+      if (t.id === 'scn-era' || t.id === 'scn-season') {
+        const focus = t.id;
+        this.showEditor();
+        (this.overlay.querySelector(`#${focus}`) as HTMLElement | null)?.focus();
+      } else {
+        const code = this.overlay.querySelector('#scn-codeview');
+        if (code) code.textContent = encodeScenario(this.scn);
+      }
+    });
+
     window.addEventListener('keydown', (e) => {
       if (!this.s) return;
       if (e.key === ' ' && !(e.target instanceof HTMLButtonElement)) {
@@ -429,6 +481,10 @@ export class App {
       case 'continue': {
         const save = loadGame();
         if (save) {
+          if (save.chapterId.startsWith('scn:')) {
+            const sc = decodeScenario(save.chapterId.slice(4));
+            if (sc) prepareScenario(scenarioDef(sc), sc.seed);
+          }
           if (save.chapterId.startsWith('daily-')) prepareDaily(Number(save.chapterId.slice(6)));
           ensureChapter(save.chapterId);
           this.begin(save);
@@ -442,7 +498,7 @@ export class App {
       }
       case 'sandbox': {
         const seed = Math.floor(Math.random() * 100000);
-        const def = sandboxDef({ lines: Number(arg), seed });
+        const def = sandboxDef({ lines: Number(arg), seed, season: seasonOf(new Date()) });
         CHAPTER_BY_ID[def.id] = def;
         this.startChapter(def.id, seed);
         return;
@@ -478,6 +534,45 @@ export class App {
         this.overlay.innerHTML = trHtml(scrapbookHtml(this.progress.scrapbook ?? {}, this.progress.campaign));
         this.renders.overlay = '';
         return;
+      case 'editor':
+        this.showEditor();
+        return;
+      case 'scnAdd':
+        this.readEditor();
+        this.scn = { ...this.scn, custom: [...this.scn.custom, { name: 'New buyer', contact: 'The buyer', origin: 'Saigon', inspection: 'normal', habit: '', product: 'shirt' }] };
+        this.showEditor();
+        return;
+      case 'scnRemove':
+        this.readEditor();
+        this.scn = { ...this.scn, custom: this.scn.custom.filter((_, i) => i !== Number(arg)) };
+        this.showEditor();
+        return;
+      case 'scnCopy':
+        this.readEditor();
+        this.copy(encodeScenario(this.scn), 'Code copied: send it to a friend.');
+        return;
+      case 'scnLink':
+        this.readEditor();
+        this.copy(this.shareLink(), 'Link copied: send it to a friend.');
+        return;
+      case 'scnLoad': {
+        const input = (this.overlay.querySelector('#scn-code') as HTMLInputElement | null)?.value ?? '';
+        const sc = decodeScenario(input);
+        if (!sc) {
+          this.showEditor('That scenario code is damaged or incomplete.');
+          return;
+        }
+        this.scn = sc;
+        this.readEditor();
+        this.showEditor('Scenario loaded.');
+        return;
+      }
+      case 'scnPlay': {
+        this.readEditor();
+        const def = prepareScenario(scenarioDef(this.scn), this.scn.seed);
+        this.startChapter(def.id, this.scn.seed);
+        return;
+      }
       case 'difficulty':
         this.progress.difficulty = arg as Progress['difficulty'];
         saveProgress(this.progress);

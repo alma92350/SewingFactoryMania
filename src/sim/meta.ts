@@ -41,6 +41,7 @@ export function shareLine(s: GameState): string {
   const ch = CHAPTER_BY_ID[s.chapterId]!;
   const n = stars(s);
   const pieces = s.orders.reduce((a, o) => a + o.finished, 0);
+  if (s.chapterId.startsWith('scn:')) return `SewingFactoryMania “${ch.name}” ${'★'.repeat(n)}${'☆'.repeat(3 - n)} ${pieces} pieces 🧵 ${s.chapterId.slice(4)}`;
   const key = Number(s.chapterId.slice(6));
   return `SewingFactoryMania #${dailyNumber(key)} ${'★'.repeat(n)}${'☆'.repeat(3 - n)} ${pieces} pieces 🧵 ${ch.modifier?.emoji ?? ''}`.trim();
 }
@@ -87,6 +88,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'storm', name: 'After the Storm', text: 'Finish Chapter 7 with at least one star.', check: (s) => s.chapterId === 'ch7' && stars(s) >= 1 },
   { id: 'nobody', name: 'Nobody Left Behind', text: 'Finish Chapter 7 without letting anyone go.', check: (s) => s.chapterId === 'ch7' && stars(s) >= 1 && (s.stats.layoffs ?? 0) === 0 },
   { id: 'cat', name: 'The Cat Stays', text: 'Finish Chapter 7 with the factory cat.', check: (s) => s.chapterId === 'ch7' && stars(s) >= 1 && s.campaign.cat === 'adopt' },
+  { id: 'maker', name: 'Scenario Maker', text: 'Finish a scenario from the editor with at least one star.', check: (s) => s.chapterId.startsWith('scn:') && stars(s) >= 1 },
   { id: 'thursday', name: 'The Ship Leaves Thursday', text: 'Earn a star on the hardest difficulty.', check: (s) => s.difficulty === 'thursday' && stars(s) >= 1 && !CHAPTER_BY_ID[s.chapterId]?.generator },
 ];
 

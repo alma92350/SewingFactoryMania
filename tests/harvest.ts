@@ -12,6 +12,9 @@ import { createChapter } from '../src/sim/state';
 import type { GameState } from '../src/sim/types';
 import { segmentsOfHtml } from '../src/ui/i18n';
 import { scrapbookHtml, scrapPage } from '../src/ui/scrapbook';
+import { scenarioEditorHtml } from '../src/ui/editor';
+import { DEFAULT_SCENARIO, SCENARIO_BUYERS, scenarioDef } from '../src/data/scenario';
+import { prepareScenario } from '../src/sim/meta';
 import { prepareDaily, shareLine } from '../src/sim/meta';
 import { ensureChapter } from '../src/data/generated';
 import {
@@ -94,7 +97,22 @@ export function harvest(): { html: string[]; canvas: string[] } {
   };
 
   // generated chapters: today's daily and a sandbox
-  const extra = [prepareDaily(20261201), prepareDaily(20261202), ensureChapter('sandbox-2-4')!];
+  const modern = { ...DEFAULT_SCENARIO, era: '2007' as const, buyers: SCENARIO_BUYERS, season: 'christmas' as const, days: 3, seed: 5 };
+  const extra = [
+    prepareDaily(20261201),
+    prepareDaily(20261202),
+    ensureChapter('sandbox-2-4')!,
+    ensureChapter('sandbox-1-9-tet')!,
+    ensureChapter('sandbox-2-9-monsoon')!,
+    prepareScenario(scenarioDef(modern), 5),
+    prepareScenario(scenarioDef({ ...DEFAULT_SCENARIO, days: 0, season: 'midautumn', seed: 6 }), 6),
+  ];
+  // the scenario editor in its states (player-typed text sits in input values, which are never translated)
+  add(scenarioEditorHtml(DEFAULT_SCENARIO));
+  add(scenarioEditorHtml({ ...modern, modifiers: ['breakdowns', 'learning', 'power'], custom: [{ name: 'X', contact: 'Y', origin: 'Z', inspection: 'strict', habit: '', product: 'yukata' }] }, 'A scenario was shared with you. Check it, then press Play.'));
+  add(scenarioEditorHtml({ ...DEFAULT_SCENARIO, season: 'tet', custom: [] }, 'That scenario code is damaged or incomplete.'));
+  add(scenarioEditorHtml({ ...DEFAULT_SCENARIO, season: 'monsoon' }, 'Scenario loaded.'));
+  add(scenarioEditorHtml({ ...DEFAULT_SCENARIO, season: 'midautumn' }));
   for (const ch of [...CHAPTERS, ...extra]) {
     add(introHtml(ch.id));
     // the first cards of the chapter, before anyone (a merchandiser) answers them

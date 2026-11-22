@@ -3,6 +3,7 @@ import type { DifficultyId } from '../data/difficulty';
 import type { GameState } from '../sim/types';
 import type { Cosmetics } from '../data/cosmetics';
 import type { ScrapPage } from './scrapbook';
+import type { Scenario } from '../data/scenario';
 
 export interface Progress {
   stars: Record<string, number>;
@@ -25,6 +26,8 @@ export interface Progress {
   cosmetics?: Partial<Cosmetics>;
   /** One scrapbook page per finished campaign chapter. */
   scrapbook?: Record<string, ScrapPage>;
+  /** The scenario last edited in the scenario editor. */
+  lastScenario?: Scenario;
 }
 
 const PROGRESS_KEY = 'sfm.progress.v1';

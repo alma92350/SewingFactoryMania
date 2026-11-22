@@ -921,3 +921,43 @@ Every chapter on every difficulty (stars per seed, 8 seeds):
 - Cosmetics change the seamstresses' **caps**, not their uniforms, because coat colours identify each worker on the floor.
 - The scrapbook "photos" are cards with names, stars and choices, not drawn pictures, and cannot be exported as an image.
 - French and Vietnamese still need review by native speakers.
+
+## Phase 5 results (build 0.5.0, "Sandbox & Beyond", first slice)
+
+Phase 5 was parked as a list of post-launch ideas. This build ships the four that fit one release, and keeps the rest parked (see the end of this section).
+
+**Shipped**
+- **Scenario editor** (title screen, unlocks with the Sandbox after Chapter 2):
+  - Settings: name, 1–4 lines, 3/5/7/10 shifts or endless, starting cash, era, season, which built-in buyers send faxes, the three Daily Challenge troubles (old machines, new style, blackout), and a seed.
+  - Every line can sew every product.
+  - A finite scenario's star goals come from a bot run on the same seed, like the Daily Challenge; an endless one uses the Sandbox's "survive N days".
+- **Share codes and links**: `SFM1-…` codes (base64url JSON with a checksum) and `?scenario=` links. Opening a link shows the editor with the scenario, ready to check and play.
+  - Codes come from other people, so they are never trusted: every field is clamped and markup is stripped.
+  - A changed code fails its checksum and is refused with a message.
+  - Saves of a scenario rebuild it from the code in the chapter id.
+- **Player-made buyers** (up to two per scenario): company, contact, origin, inspection strictness, a habit and the product they order. They send faxes like the built-in buyers. Player text sits in input values and is never sent through the translator.
+- **Seasons** for the Sandbox (from today's date) and for scenarios (chosen):
+  - **Tết**: the factory closes on day 3 and not everyone comes back; the Chapter 5 scene and return rules are reused.
+  - **Monsoon**: rain every other afternoon, with power cuts and the generator.
+  - **Mid-Autumn Festival**: more children's orders, prices +8%.
+  - **Christmas rush**: European catalogue orders, quantities +30%.
+- **The 2007 era** (a first taste of the sequel era):
+  - Vietnam joins the WTO, and a new buyer (Atlantic Outfitters, USA) is available only in this era.
+  - Wages and prices are both ×1.4.
+  - "Computerised planning": a production planner and a merchandiser are in the office from the first morning.
+- Achievement 19, **Scenario Maker**.
+- Every new string in Vietnamese and French (73 each); both languages still cover 100% of ≈1.29 million harvested segments.
+
+**Tests**: 149 unit tests (10 new: share-code round trip, inside links, tampering, hostile input, rebuild after reload, player-made buyers, the 2007 era, seasons, a fuzz run of 10 random scenarios where the bot earns ★ and doing nothing earns none); Playwright smoke 32/32 (new: build a scenario with a player-made buyer and play it, open a shared link); axe-core 30/30 screens (new: the editor, desktop and phone).
+
+**Deviations and limits**
+- Season dates are approximate: Tết is 20 January to 20 February every year, although the Lunar New Year moves.
+- Finite scenarios are scored on pieces packed (like the Daily Challenge), not on profit, and going bankrupt earns no star.
+- The 2007 era changes buyers, wages, prices and the office; it is not a new campaign, and faxes are still faxes.
+- There is no online gallery of scenarios: codes and links are shared by hand.
+
+**Still parked**
+- Multiple factories (Saigon + Hà Nội).
+- The domestic brand storyline; Sông Sài Fashion House in Chapter 7 is its seed.
+- A full 2000s campaign.
+- A shared, moderated gallery for community-made buyers and scenarios.

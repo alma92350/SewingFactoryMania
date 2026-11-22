@@ -101,7 +101,9 @@ const clampInt = (v: unknown, lo: number, hi: number, fallback: number): number 
 /** Make any input a valid scenario (codes come from other people: never trust them). */
 export function sanitize(raw: Partial<Scenario>): Scenario {
   const d = DEFAULT_SCENARIO;
-  const buyers = Array.isArray(raw.buyers) ? [...new Set(raw.buyers.filter((b) => SCENARIO_BUYERS.includes(b)))] : d.buyers;
+  const era: Era = raw.era === '2007' ? '2007' : '1990s';
+  // Atlantic Outfitters only comes to Vietnam after the trade agreement and the WTO
+  const buyers = Array.isArray(raw.buyers) ? [...new Set(raw.buyers.filter((b) => SCENARIO_BUYERS.includes(b) && (b !== 'atlantic' || era === '2007')))] : d.buyers;
   const custom = (Array.isArray(raw.custom) ? raw.custom : []).slice(0, LIMITS.customBuyers).map((c) => ({
     name: clampStr(c?.name, LIMITS.name, 'New buyer') || 'New buyer',
     contact: clampStr(c?.contact, LIMITS.contact, 'The buyer') || 'The buyer',
@@ -116,7 +118,7 @@ export function sanitize(raw: Partial<Scenario>): Scenario {
     lines: clampInt(raw.lines, 1, 4, d.lines),
     days: DAY_CHOICES.includes(Number(raw.days)) ? Number(raw.days) : d.days,
     cash: clampInt(raw.cash, LIMITS.cashMin, LIMITS.cashMax, d.cash),
-    era: raw.era === '2007' ? '2007' : '1990s',
+    era,
     buyers: buyers.length || custom.length ? buyers : d.buyers,
     custom,
     modifiers: Array.isArray(raw.modifiers) ? [...new Set(raw.modifiers.filter((m) => SCENARIO_MODIFIERS.includes(m)))] : [],

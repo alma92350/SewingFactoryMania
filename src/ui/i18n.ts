@@ -105,7 +105,7 @@ function fill(template: string, names: string[], nums: string[], l: TargetLang):
 export function hasTranslation(segment: string, l: TargetLang = 'vi'): boolean {
   const D = DICTS[l];
   const s = decode(segment.trim());
-  if (s.startsWith('SewingFactoryMania #')) return true; // the share line stays the same in every language
+  if (s.startsWith('SewingFactoryMania #') || s.startsWith('SewingFactoryMania “') || /^SFM\d-/.test(s)) return true; // share lines and codes stay the same in every language
   if (!/\p{L}/u.test(s)) return true;
   if (s.replace(/[^\p{L}]/gu, '').length <= 2) return true; // initials on avatars, single letters
   const { key } = keyOf(s);

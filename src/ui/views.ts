@@ -469,7 +469,8 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink
     <div class="modes"><button class="chapter" data-action="daily"><span class="num">☀</span><span><b>${esc(x.dailyName)}</b><small>${esc(x.dailyPlace)}</small></span><span class="st">${x.dailyBest !== undefined ? `${x.dailyBest}` : 'new'}</span></button>
     <div class="sandbox"><span><b>Sandbox</b><small>${unlockedSandbox ? `Endless factory${p.sandboxBest ? ` · best ${p.sandboxBest} days` : ''}` : 'Unlocks after Chapter 2'}</small></span>${[1, 2, 3, 4]
       .map((n) => `<button class="mini chip" data-action="sandbox" data-arg="${n}" ${unlockedSandbox ? '' : 'disabled'}>${n} line${n > 1 ? 's' : ''}</button>`)
-      .join('')}</div></div>
+      .join('')}</div>
+    <button class="chapter" data-action="editor" ${unlockedSandbox ? '' : 'disabled'}><span class="num">✎</span><span><b>Scenario editor</b><small>${unlockedSandbox ? 'Build a factory, invent buyers, share the code' : 'Unlocks after Chapter 2'}</small></span></button></div>
     <details class="ach"><summary>Achievements · ${got.length}/${ACHIEVEMENTS.length}</summary><ul class="goals">${ACHIEVEMENTS.map((a) => `<li class="${got.includes(a.id) ? 'ok' : 'muted'}">${got.includes(a.id) ? '🏅' : '○'} <b>${esc(a.name)}</b>: <span>${esc(a.text)}</span></li>`).join('')}</ul></details>
     <div class="row center"><button class="mini" data-action="scrapbook">📖 The scrapbook</button></div>
     <details class="ach"><summary>Looks · stars unlock caps, collars, calendars and radio songs</summary>${cosmeticsHtml(p.cosmetics ?? {}, career.total, p.campaign.cat === 'adopt')}</details>
@@ -501,7 +502,7 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink
 
 export function introHtml(chapterId: string): string {
   const c = CHAPTER_BY_ID[chapterId]!;
-  const tag = c.scoreStars ? 'Daily Challenge' : c.generator ? 'Sandbox' : `Chapter ${c.index} · ${c.year}`;
+  const tag = c.id.startsWith('scn:') ? `Scenario · ${c.year}` : c.scoreStars ? 'Daily Challenge' : c.generator ? 'Sandbox' : `Chapter ${c.index} · ${c.year}`;
   return `<div class="card" role="dialog" aria-labelledby="intro-title"><div class="mentor" aria-hidden="true">${tag}</div><h2 id="intro-title">${esc(c.name)}</h2><p>${esc(c.intro)}</p>${c.modifier ? `<p><b>${esc(c.modifier.name)}</b>: <span>${esc(c.modifier.text)}</span></p>` : ''}
     <ul class="goals">${c.starText.map((t, i) => `<li>${'★'.repeat(i + 1)} ${esc(t)}</li>`).join('')}</ul><div class="buttons"><button class="primary" data-action="introOk">Open the workshop</button></div></div>`;
 }

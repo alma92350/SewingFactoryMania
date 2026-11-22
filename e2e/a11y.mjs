@@ -82,6 +82,10 @@ for (const [device, opts] of [
   await page.goto(base);
   await page.locator('[data-action="scrapbook"]').first().click();
   await audit(page, `${device} scrapbook`);
+  await page.goto(base);
+  await page.locator('[data-action="editor"]').click();
+  await page.locator('[data-action="scnAdd"]').click();
+  await audit(page, `${device} scenario editor`);
 
   // a chapter: intro, every tab, a fax, a family card
   await page.goto(base);

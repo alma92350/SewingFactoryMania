@@ -243,6 +243,26 @@ for (const [name, opts] of [
   if (shots) await page.screenshot({ path: `${shots}/${name}-ch7.png` });
   check(`${name} ch7`, c7.prospects === 1 && c7.cat, JSON.stringify(c7));
 
+  // ── Scenario editor: add a buyer, play; then a shared link
+  await page.goto(base);
+  await page.locator('[data-action="editor"]').click();
+  await page.locator('#scn-lines').selectOption('1');
+  await page.locator('#scn-days').selectOption('3');
+  await page.locator('[data-action="scnAdd"]').click();
+  await page.locator('[data-cb="0:name"]').fill('Chợ Đêm Traders');
+  await page.locator('[data-cb="0:product"]').selectOption('shorts');
+  await page.locator('#scn-name').fill('Night market');
+  await page.locator('#scn-name').blur();
+  const code = await page.locator('#scn-codeview').textContent();
+  if (shots) await page.screenshot({ path: `${shots}/${name}-editor.png`, fullPage: true });
+  await page.locator('[data-action="scnPlay"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  const scn = await page.evaluate(() => ({ id: window.__app.state.chapterId, lines: window.__app.state.lines.length, days: window.__app.state.history.length }));
+  check(`${name} scenario`, scn.id.startsWith('scn:') && scn.lines === 1 && (code ?? '').startsWith('SFM1-'), JSON.stringify({ lines: scn.lines, code: code?.slice(0, 12) }));
+  await page.goto(`${base}&scenario=${encodeURIComponent(code ?? '')}`);
+  const shared = await page.locator('#scn-name').inputValue();
+  check(`${name} shared link`, shared === 'Night market', shared);
+
   // ── Scrapbook and French
   await page.goto(base);
   await page.locator('[data-action="scrapbook"]').first().click();
