@@ -811,3 +811,49 @@ The bot never reaches ★★★ in any chapter; doing nothing earns no star in a
 - Heat overlay not built (heat is not simulated yet); bottleneck and quality overlays shipped instead.
 - The marker puzzle uses tap-to-place on a 4-wide strip (no free dragging) to keep 44 px targets on phones.
 - Line leaders reuse the bot's balancing rules; there is no priority setting yet.
+
+## Phase 3 results (build 0.3.0, "Before Tết")
+
+**Shipped**
+- **Chapter 5 · Before Tết** (January 1995, three lines, ~30 people): the full **people system**. Every worker has a **morale** that sets speed (×0.8–1.2) and defects; overtime, tiredness and low pay push it down, **welfare upgrades** (industrial fans, a canteen, clean water and first aid) push it up every night. Below a third, people **quit** for a bigger factory in Biên Hòa. **Sick days** (with sick pay). The **1994 Labour Code** caps overtime at three evenings a month. The **13th-month bonus** decision, **Tết at home** (close the factory, or open with volunteers at double pay), and the **post-Tết return**: only those who want to come back from the provinces do. **Mentoring**: a senior teaches a junior while sewing a little slower. Family: **Bác Tư's scissors** (he retires and gives his scissors, and a new trait, to one seamstress).
+- **Chapter 6 · The Export Zone** (October 1996, four lines, a cutting room, an office): the **merchandiser** answers routine faxes with your **quote policy** and handles samples; the **production planner** buys fabric for FOB orders and moves waiting orders to idle lines. New products: **padded jackets** (Hanil, FOB), **yukata** (Sakura-ya, strict), **baby rompers** (Formosa). New buyer: **Pearl River** (Mr. Zhou, Guangdong), who sends urgent overflow orders. Family: **Út comes back** (free merchandiser or free line leader) and **Uncle Sáu's favour**.
+- **Line picker**: with three or more lines the map shows two at a time; chips switch between pairs, a red dot means a line needs you.
+- **Meta**: 14 **achievements**, a **career title** from total stars, the **Daily Challenge** (one shift, the same for everyone on a date, star goals calibrated each day by a bot run in 10–35 ms, a share line), the endless **Sandbox** (1–4 lines, generated faxes every morning, best run kept), an **opt-in local play log** (nothing leaves the device; JSON export; D1 return shown on the title screen).
+- **Vietnamese**: every new string, including the new chapters, Daily, Sandbox, achievements and office.
+
+**Measured with the bot** (Seamstress difficulty, 8 seeds per chapter)
+
+| Chapter | Bot | Stars | Cash at end (avg) | Quits | Avg morale at end | Overtime days | Quiet time (avg, max) | Actions per game hour |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| 2 (reference) | fair | ★★ ×8 | $1,536–1,547 | — | — | 2–3 | 20%, 22% | 0.52 |
+| 5 | fair | ★★ ×8 | $2,615–2,683 ($2,652) | 0 | 1.00 | 1–2 | 31%, 59% | 0.57 |
+| 5 | exploiter | ★ ×7, none ×1 | $1,709–3,139 ($2,935) | 0–1 | 0.56 | 3 | 19%, 27% | 0.75 |
+| 6 | fair | ★★ ×7, ★ ×1 | $4,358–4,766 ($4,699) | 0 | 1.00 | 3 | 21%, 35% | 0.45 |
+| 6 | exploiter | ★★ ×6, ★ ×1, none ×1 | $4,424–4,919 ($4,553) | 0–1 | 0.47 | 3 | 5%, 12% | 0.48 |
+
+The "exploiter" bot never buys welfare, never pays the bonus, keeps the factory open on Tết and works every overtime evening allowed. In Ch5 after Tết, the fair bot gets all 40 people back; the exploiter loses 9–15.
+
+**Exit criteria status**
+
+| Criterion | Status |
+|---|---|
+| "Fair play wins" bot test green in every chapter from Ch5 | ✅ tested on stars: on every seed the fair bot earns at least as many stars as the exploiter, and more in total. ⚠ **On cash, Ch5 is not a win for fair play**: the exploiter ends with about $280 more on average (it skips the bonus and welfare), but it misses the star goals (people do not come back after Tết). In Ch6 fair play also wins on average cash (tested). |
+| Taps/min flat Ch2→Ch6 (±20%) | ✅ tested for Ch3–Ch6 against Ch2 (0.52): Ch5 0.57 (+10%), Ch6 0.45 (−13%) |
+| 60 fps with 6 lines on a throttled phone | ⚠ **4 lines, not 6** (see deviations). Ch6 on an emulated Pixel 5 with 4× CPU throttling at 4× speed: median frame 16.7 ms, p95 33 ms, p99 50 ms (Ch4 for comparison: 16.7 / 33 / 33 ms) |
+| D1 retention measured in local opt-in telemetry | ✅ instrumented (session, chapter start/end, shift end; D1 on the title screen). ⏳ No playtest data yet |
+| Quiet ≤ 50%, bot wins every chapter, ★★★ not free, ≤ 2 new systems per chapter | ✅ tested (Ch5: morale + training; Ch6: planning + merchandising) |
+| VI coverage | ✅ tested at ≥ 99% (raised from 95%): 100% of ≈573,000 segments harvested from all chapters, the Daily and the Sandbox |
+| Desktop and phone without errors | ✅ Playwright: Ch0–Ch4 as before, plus Ch5 welfare + 3-line picker, Ch6 line switching + office panel, Daily, Sandbox, Vietnamese title |
+
+**Notable fixes found while building**
+- The planner missed the sample card that a fax creates in the same minute; office work now loops until nothing changes.
+- Without sick pay and with a soft defect penalty, exploitation was free; sick pay and a stronger morale-to-defects link made care pay off in stars.
+- Ch5 and Ch6 started with too few leaders and QC, so the bot hired all day and taps rose; both now start with a leader and QC on the main lines.
+- The chapter intro crashed for generated chapters (Daily, Sandbox).
+- The line picker covered the office area (desktop) and the last stations of line D (phone); it moved to the bottom right on desktop and to the top of the map in portrait.
+
+**Deviations from the plan**
+- **Four lines, not six**, in the Export Zone: six lines left too little room per station on a phone, and four already give enough work for the planner. The 60 fps criterion was measured with four.
+- Fair play wins on stars in every chapter, but not on cash in Ch5 (see above). This is deliberate for now: a stingy owner can make money in the short term, and pays for it in the people who come back.
+- The Daily Challenge share line is text only (no image), and there is no online leaderboard: the score is compared with the bot's calibration.
+- Uncle Sáu's favour is a fax order (Mr. Phúc's work jackets), not a family scene with choices.

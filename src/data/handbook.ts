@@ -76,7 +76,7 @@ export const TIPS: Record<string, Tip> = {
   },
   lines: {
     title: 'More lines than eyes.',
-    body: 'The map shows two lines at a time. The buttons at the bottom left switch between them; a red dot means a line needs you (a breakdown, a big pile, or a step with nobody on it).',
+    body: 'The map shows two lines at a time. The buttons at the bottom right switch between them; a red dot means a line needs you (a breakdown, a big pile, or a step with nobody on it).',
   },
   inspection: {
     title: 'After the inspection.',

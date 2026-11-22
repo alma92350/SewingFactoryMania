@@ -34,6 +34,19 @@ async function dismissTips(page) {
   }
 }
 
+/** Answer decisions (never a micro-game) and dismiss tips until no overlay is left. */
+async function clearOverlays(page) {
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(250);
+    if (await page.locator('#overlay').evaluate((e) => e.hidden)) return;
+    const choice = page.locator('#overlay button.choice:not([data-arg$=":play"])').first();
+    const tip = page.locator('[data-action="tipOk"]');
+    if (await choice.count()) await choice.click();
+    else if (await tip.count()) await tip.click();
+    else return;
+  }
+}
+
 async function chooseFirst(page, kind) {
   const btn = page.locator(`#overlay button.choice`).first();
   await btn.waitFor({ timeout: 5000 });
@@ -168,6 +181,53 @@ for (const [name, opts] of [
   const overlayText = await page.locator('#overlayBtn').textContent();
   if (shots) await page.screenshot({ path: `${shots}/${name}-ch4.png` });
   check(`${name} ch4`, lines.length === 2 && lines.every(Boolean) && /slowest/.test(overlayText ?? ''), `lines=${JSON.stringify(lines)} overlay=${overlayText}`);
+
+  // ── Chapter 5: morale panel, bonus decision, mentor
+  const allStars = JSON.stringify({ stars: { ch0: 2, ch1: 1, ch2: 1, ch3: 1, ch4: 1, ch5: 1 }, campaign: {}, difficulty: 'seamstress', sound: false, seenTips: [] });
+  await page.evaluate((p) => localStorage.setItem('sfm.progress.v1', p), allStars);
+  await page.goto(base);
+  await page.locator('[data-action="start"][data-arg="ch5"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  await dismissTips(page);
+  await clearOverlays(page);
+  await page.getByRole('tab', { name: /Team/ }).click();
+  const welfareBtn = page.locator('[data-action="welfare"]').first();
+  await welfareBtn.waitFor({ timeout: 5000 });
+  await welfareBtn.click();
+  const c5 = await page.evaluate(() => ({ lines: window.__app.state.lines.length, welfare: Object.values(window.__app.state.welfare).filter(Boolean).length, morale: window.__app.state.workers[0].morale }));
+  const picker5 = await page.locator('#linePicker button').count();
+  if (shots) await page.screenshot({ path: `${shots}/${name}-ch5.png` });
+  check(`${name} ch5`, c5.lines === 3 && picker5 === 2 && c5.welfare === 1 && c5.morale > 0, `lines=${c5.lines} picker=${picker5} welfare=${c5.welfare} morale=${c5.morale}`);
+
+  // ── Chapter 6: four lines, line picker, office
+  await page.goto(base);
+  await page.locator('[data-action="start"][data-arg="ch6"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  await dismissTips(page);
+  await clearOverlays(page);
+  await page.locator('#linePicker button[data-arg="2,3"]').click();
+  const visible = await page.evaluate(() => window.__app.rendererForTests.layout.lineIds);
+  if (shots) await page.screenshot({ path: `${shots}/${name}-ch6.png` });
+  await page.getByRole('tab', { name: /Team/ }).click();
+  await page.locator('#panel h3', { hasText: /office/i }).waitFor({ timeout: 5000 }).catch(() => {});
+  const office = await page.locator('#panel').innerText();
+  if (shots) await page.screenshot({ path: `${shots}/${name}-ch6-team.png` });
+  check(`${name} ch6`, JSON.stringify(visible) === '[2,3]' && /office/i.test(office), `visible=${JSON.stringify(visible)} office=${/office/i.test(office)}`);
+
+  // ── Daily Challenge and Sandbox
+  await page.goto(base);
+  if (shots) await page.screenshot({ path: `${shots}/${name}-title3.png` });
+  await page.locator('[data-action="daily"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  await dismissTips(page);
+  const daily = await page.evaluate(() => ({ id: window.__app.state.chapterId, orders: window.__app.state.orders.length }));
+  check(`${name} daily`, daily.id.startsWith('daily-') && daily.orders === 1, JSON.stringify(daily));
+  await page.goto(base);
+  await page.locator('[data-action="sandbox"][data-arg="2"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  await dismissTips(page);
+  const sandbox = await page.evaluate(() => ({ id: window.__app.state.chapterId, lines: window.__app.state.lines.length }));
+  check(`${name} sandbox`, sandbox.id.startsWith('sandbox-2-') && sandbox.lines === 2, JSON.stringify(sandbox));
 
   // ── Vietnamese
   await page.goto(base);

@@ -990,7 +990,7 @@ export const VI_TIPS: Record<string, { title: string; body: string }> = {
   },
   lines: {
     title: 'Chuyền nhiều hơn mắt.',
-    body: 'Bản đồ hiện hai chuyền một lúc. Các nút ở góc dưới bên trái để chuyển qua lại; chấm đỏ nghĩa là chuyền đó cần con (máy hỏng, hàng ùn nhiều, hoặc có công đoạn không người).',
+    body: 'Bản đồ hiện hai chuyền một lúc. Các nút ở góc dưới bên phải để chuyển qua lại; chấm đỏ nghĩa là chuyền đó cần con (máy hỏng, hàng ùn nhiều, hoặc có công đoạn không người).',
   },
   overlay: {
     title: 'Nhìn chuyền theo cách khác.',

@@ -8,9 +8,9 @@ Inspired by [DataCenterMania](https://github.com/alma92350/DataCenterMania).
 
 - Product requirements, brainstorm and phased plan: [`docs/PRD.md`](docs/PRD.md)
 
-## Current build: Phase 2 "The Fabric Hunt"
+## Current build: Phase 3 "Before Tết"
 
-Five chapters, 1992–1994:
+Seven chapters, 1992–1996, plus a Daily Challenge and an endless Sandbox:
 
 | Ch | Name | New systems |
 |---|---|---|
@@ -19,10 +19,12 @@ Five chapters, 1992–1994:
 | 2 | The Man with the Ruler (6 shifts) | quality (defects, QC table, AQL inspection, sample check) and mechanics |
 | 3 | The Fabric Hunt (7 shifts) | sourcing (FOB orders, suppliers, shipments, fabric inspection) and the cutting table (marker) |
 | 4 | Rain and Darkness (7 shifts) | power cuts, the generator and rain; two lines with line leaders |
+| 5 | Before Tết (three lines) | morale, welfare, sick days, quits, the overtime cap, the 13th-month bonus, Tết and the return; mentoring |
+| 6 | The Export Zone (four lines) | the production planner and the merchandiser (quote policy); padded jackets, yukata, baby wear; overflow orders |
 
-Family choices (Má's machines, Uncle Sáu's letter, Út's future, Má's savings, the flood) change the game. Three difficulty levels, ★/★★/★★★ goals per chapter, autosave at every shift end, Handbook with Bác Tư's tips and a glossary, four micro-games, bottleneck and quality overlays, **English and Vietnamese**, an **e-ink mode** (`?eink=1`), works offline.
+Family choices (Má's machines, Uncle Sáu's letter, Út's future, Má's savings, the flood, Bác Tư's scissors, Tết at home, Út's return) change the game. 14 achievements and a career title; an opt-in play log kept only on your device. Three difficulty levels, ★/★★/★★★ goals per chapter, autosave at every shift end, Handbook with Bác Tư's tips and a glossary, four micro-games, bottleneck and quality overlays, **English and Vietnamese**, an **e-ink mode** (`?eink=1`), works offline.
 
-Controls: tap a seamstress, then tap a machine to move her (tapping an occupied machine swaps them). Tap a machine to change its job, seat someone, or fix it. Tabs: Line, Orders (overtime), Fabric (suppliers, warehouse), Team (hire, line leaders), Handbook. Keys: `Space` pause, `1` / `2` / `3` speed, `O` map overlay, `Esc` cancel. Add `?seed=N` to the URL to replay a specific day.
+Controls: tap a seamstress, then tap a machine to move her (tapping an occupied machine swaps them). Tap a machine to change its job, seat someone, or fix it. Tabs: Line, Orders (overtime), Fabric (suppliers, warehouse), Team (hire, line leaders, welfare, mentors, office), Handbook. Keys: `Space` pause, `1` / `2` / `3` speed, `O` map overlay, line chips to switch lines when there are more than two, `Esc` cancel. Add `?seed=N` to the URL to replay a specific day.
 
 ## Develop
 
@@ -53,7 +55,7 @@ Same rules as DataCenterMania:
 ```
 src/
   core/    seeded serializable RNG
-  data/    content and tuning as data: products, buyers, chapters, people, difficulty, handbook, tuning
+  data/    content and tuning as data: products, buyers, chapters, people, difficulty, handbook, tuning, generated chapters
   sim/     pure deterministic simulation, no DOM
     sim.ts         step(): fixed 1-game-minute tick; endDay(); scripts and the day cycle
     production.ts  stations, defects, routing, the QC table
@@ -64,6 +66,9 @@ src/
     leader.ts      line balancing shared by line leaders and the bot
     commands.ts    the only write path (assign, setOp, fix, decide, sample, hire, letGo, overtime, sleep)
     selectors.ts   derived read-only queries (bottleneck, projections, AQL plan)
+    morale.ts      morale, welfare, sick days, quits, bonus, Tết, mentoring
+    office.ts      the planner and the merchandiser
+    meta.ts        achievements, career title, Daily Challenge calibration
     objectives.ts  chapter stars
     autopilot.ts   "competent player" bot used by the balance tests
   render/  layout math + Canvas 2D renderer (reads state, never writes)
@@ -74,6 +79,7 @@ e2e/       Playwright smoke test on the production build
 
 - **The simulation is headless and deterministic.** Same seed and same commands give the same shift (tested).
 - **Balance is a test.** In every chapter the bot must pass ★ on every seed, doing nothing must fail, and ★★★ must not come free.
-- **Translation is a test.** A harvest of every string seen while the bot plays all chapters must be ≥ 95% covered in Vietnamese.
+- **Translation is a test.** A harvest of every string seen while the bot plays all chapters must be ≥ 99% covered in Vietnamese.
+- **Fair play is a test.** From Chapter 5, a bot that exploits its workers must not earn more stars than one that cares for them.
 - **Progressive disclosure is data.** Chapters declare their systems; a test fails if a chapter adds more than two.
 - **Pacing is a test.** A shift is 6–8 real minutes at 1×, and something visibly moves at least every 90 seconds.
