@@ -170,8 +170,9 @@ export function orderValue(o: Order, pieces = o.qty): number {
   return (pieces / 12) * o.price;
 }
 
+/** Wages for today: everyone present, plus sick pay for those off sick (Chapter 5+). */
 export function dailyWages(s: GameState): number {
-  return s.workers.filter((w) => !w.absent).reduce((a, w) => a + w.wage, 0);
+  return s.workers.filter((w) => !w.absent || w.sick).reduce((a, w) => a + w.wage, 0);
 }
 
 export function lineEfficiency(s: GameState): number {

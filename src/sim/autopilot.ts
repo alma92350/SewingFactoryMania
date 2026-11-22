@@ -1,9 +1,8 @@
 import { applyCommand } from './commands';
 import { coverEmptySteps, leaderPresent, rebalance, seatBench } from './leader';
 export { coverEmptySteps, rebalance } from './leader';
-import { rollsToBuy } from './sourcing';
+import { buyMissingFabric } from './office';
 import { bonusCost } from './morale';
-import { SUPPLIERS } from '../data/suppliers';
 import { activeOrder, dailyWages, has, lineRate, orderById, projectedFinishDay, workMinutesPerDay } from './selectors';
 import type { GameState } from './types';
 
@@ -125,6 +124,13 @@ function hireIfNeeded(s: GameState, act: (r: { ok: boolean }) => number, cfg: Bo
     const e = pickBest('electrician');
     if (e && budget > e.wage * 3) act(applyCommand(s, { type: 'hire', applicant: e.id }));
   }
+  for (const role of ['planner', 'merchandiser'] as const) {
+    const sys = role === 'planner' ? 'planning' : 'merchandising';
+    if (has(s, sys) && !s.workers.some((w) => w.role === role)) {
+      const p = pickBest(role);
+      if (p && budget > p.wage * 3) act(applyCommand(s, { type: 'hire', applicant: p.id }));
+    }
+  }
   if (has(s, 'leaders') && !cfg.noLeaders && s.workers.filter((w) => w.role === 'leader').length < s.lines.length) {
     const l = pickBest('leader');
     if (l && budget > l.wage * 3) act(applyCommand(s, { type: 'hire', applicant: l.id }));
@@ -139,22 +145,9 @@ function hireIfNeeded(s: GameState, act: (r: { ok: boolean }) => number, cfg: Bo
   }
 }
 
-/** Buy the missing rolls: Korean fabric when there is time, the local mill when there is not. */
+/** Buy the missing rolls (the same rule the Production Planner uses). */
 function buyFabricIfNeeded(s: GameState, act: (r: { ok: boolean }) => number): void {
-  for (const o of s.orders) {
-    const need = rollsToBuy(s, o);
-    if (need <= 0) continue;
-    const supplier = o.dueDay - s.day >= 7 ? 'daegu' : 'binhminh';
-    const reserve = (dailyWages(s) + 20) * 2;
-    const price = SUPPLIERS[supplier]!.price;
-    for (let n = need + 4; n >= 1; n--) {
-      if (s.cash - n * price < reserve) continue;
-      if (applyCommand(s, { type: 'buy', supplier, orderId: o.id, rolls: n }).ok) {
-        act({ ok: true });
-        break;
-      }
-    }
-  }
+  for (let i = buyMissingFabric(s, 4); i > 0; i--) act({ ok: true });
 }
 
 

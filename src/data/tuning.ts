@@ -66,7 +66,7 @@ export const TUNING = {
   /** People (Chapter 5+). */
   moraleStart: 0.7,
   moraleSpeed: 0.4,
-  moraleDefects: 0.6,
+  moraleDefects: 1,
   quitBelow: 0.35,
   quitChance: 0.3,
   sickChance: 0.025,

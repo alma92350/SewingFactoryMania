@@ -131,6 +131,66 @@ PRODUCTS.jeans = {
   ],
 };
 
+PRODUCTS.padded = {
+  id: 'padded',
+  name: 'padded winter jacket',
+  plural: 'padded jackets',
+  fabric: '#7b3f3f',
+  tie: '#e8c547',
+  metres: 2.2,
+  ops: [
+    op('padded', 'quilt', 'Quilt panels', 2, 'lockstitch', 0.004),
+    op('padded', 'pockets', 'Pockets', 1.4, 'lockstitch'),
+    op('padded', 'zip', 'Front zip', 1.6, 'lockstitch', 0.0045),
+    op('padded', 'collar', 'Collar', 1.5, 'lockstitch', 0.004),
+    op('padded', 'hood', 'Hood', 1.3, 'lockstitch'),
+    op('padded', 'cuffs', 'Cuffs', 1, 'lockstitch'),
+    op('padded', 'shoulders', 'Shoulders', 0.8, 'overlock'),
+    op('padded', 'sleeves', 'Set sleeves', 1.6, 'overlock', 0.0035),
+    op('padded', 'sides', 'Side seams', 1.4, 'overlock'),
+    op('padded', 'lining', 'Lining', 1.3, 'overlock'),
+    op('padded', 'hem', 'Hem', 1, 'lockstitch'),
+    op('padded', 'snaps', 'Snaps', 0.7, 'buttonhole', 0.002),
+    op('padded', 'tacks', 'Bartacks', 0.6, 'bartack', 0.002),
+  ],
+};
+
+PRODUCTS.baby = {
+  id: 'baby',
+  name: 'baby romper',
+  plural: 'baby rompers',
+  fabric: '#f4c6d7',
+  tie: '#3f8f5f',
+  metres: 0.6,
+  ops: [
+    op('baby', 'neck', 'Neck binding', 0.7, 'overlock', 0.0035),
+    op('baby', 'shoulders', 'Shoulders', 0.5, 'overlock'),
+    op('baby', 'sleeves', 'Sleeves', 0.8, 'overlock'),
+    op('baby', 'sides', 'Side seams', 0.7, 'overlock'),
+    op('baby', 'hem', 'Leg hems', 0.6, 'lockstitch'),
+    op('baby', 'snaps', 'Snaps', 0.5, 'buttonhole', 0.003),
+    op('baby', 'label', 'Label', 0.3, 'lockstitch', 0.002),
+  ],
+};
+
+PRODUCTS.yukata = {
+  id: 'yukata',
+  name: 'yukata',
+  plural: 'yukata',
+  fabric: '#3b5998',
+  tie: '#f3ead7',
+  metres: 2.4,
+  ops: [
+    op('yukata', 'panels', 'Body panels', 1.8, 'lockstitch', 0.004),
+    op('yukata', 'collar', 'Collar band', 2, 'lockstitch', 0.005),
+    op('yukata', 'sleeves', 'Sleeves', 1.6, 'lockstitch', 0.004),
+    op('yukata', 'sides', 'Side seams', 1.4, 'lockstitch'),
+    op('yukata', 'hem', 'Hem', 1.2, 'lockstitch'),
+    op('yukata', 'ties', 'Ties', 0.8, 'lockstitch'),
+    op('yukata', 'finish', 'Finishing', 0.6, 'lockstitch', 0.003),
+  ],
+};
+
 /** The QC table and the cutting table are pseudo-operations shared by every product. */
 export const QC_OP: OperationDef = { id: 'qc', name: 'QC table', smv: 0.25, machine: 'qc', risk: 0 };
 export const CUT_OP: OperationDef = { id: 'cut', name: 'Cutting table', smv: 0.2, machine: 'cutting', risk: 0 };

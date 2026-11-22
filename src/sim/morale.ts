@@ -70,6 +70,7 @@ export function morningSickness(s: GameState, events: SimEvent[]): void {
       if (w.station !== null) s.stations[w.station]!.workerId = null;
       w.station = null;
       w.absent = true;
+      w.sick = true;
       sick.push(w.name);
     }
   }
@@ -174,4 +175,39 @@ export function bacTuScissors(s: GameState, workerId: string): void {
   if (!w) return;
   for (const k of Object.keys(w.skill) as (keyof Worker['skill'])[]) w.skill[k] = Math.min(1, Math.round((w.skill[k] + 0.15) * 100) / 100);
   if (!w.traits.includes('scissors')) w.traits.push('scissors');
+}
+
+/** Chapter 6: Út comes back and takes a job in the office or on line C (free, family). */
+export function utReturns(s: GameState, choice: string): void {
+  let ut = s.workers.find((w) => w.id === 'ut');
+  if (!ut) {
+    const def = CREW.ut!;
+    ut = {
+      id: 'ut',
+      name: def.name,
+      role: 'operator',
+      skill: { ...def.skill },
+      traits: [...def.traits],
+      wage: 0,
+      station: null,
+      arriveAt: s.minute,
+      from: null,
+      leftAt: s.minute,
+      learn: {},
+      fatigue: 0,
+      morale: 1,
+      absent: false,
+      note: s.campaign['ch2.ut'] === 'osaka' ? 'Back from Osaka with a degree in textile engineering.' : def.note,
+      mentor: null,
+    };
+    s.workers.push(ut);
+  }
+  if (ut.station !== null) s.stations[ut.station]!.workerId = null;
+  ut.station = null;
+  ut.wage = 0;
+  if (choice === 'lead') {
+    ut.role = 'leader';
+    const line = s.lines[2] ?? s.lines[0]!;
+    line.leaderId = ut.id;
+  } else ut.role = 'merchandiser';
 }

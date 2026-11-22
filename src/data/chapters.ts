@@ -95,6 +95,8 @@ export interface ChapterDef {
   extraCrew?: number;
   /** The Tết holiday day (Chapter 5). */
   tetDay?: number;
+  /** Line leaders already in place at the start: worker id → line index. */
+  crewLeads?: Record<string, number>;
   /** Applicant roles available in this chapter. */
   applicantRoles: ('operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader' | 'planner' | 'merchandiser')[];
 }
@@ -439,7 +441,8 @@ export const CHAPTERS: ChapterDef[] = [
       { name: 'Line B', stations: [L, L, L, L, L, L, O, O, O, B, T, Q] },
       { name: 'Line C', stations: [L, L, L, L, L, L, O, O, O, B, Q] },
     ],
-    crew: { tam: 0, thu: 10, linh: 1, lan: 2, thao: 3, trang: 4, hoa: 5, ngan: 6, huong: 7, bich: 11, cuc: 17, dung: 12, giang: 13, hanh: 23, kim: 24, phuong: 14, van: 15 },
+    crew: { tam: 0, thu: 10, nhung: 22, quang: null, linh: 1, lan: 2, thao: 3, trang: 4, hoa: 5, ngan: 6, huong: 7, bich: 11, cuc: 17, dung: 12, giang: 13, hanh: 23, kim: 24, phuong: 14, van: 15 },
+    crewLeads: { quang: 1 },
     extraCrew: 14,
     cash: 1200,
     rent: 30,
@@ -534,6 +537,156 @@ export const CHAPTERS: ChapterDef[] = [
       options: [
         { id: 'home', label: 'Close the factory and go home', effect: 'No work today; the respect of everyone (no wages)' },
         { id: 'stay', label: 'Open with volunteers at double pay', effect: 'About 40% come in; wages doubled today' },
+      ],
+    },
+  },
+  {
+    id: 'ch6',
+    index: 6,
+    name: 'The Export Zone',
+    year: 1996,
+    place: 'A new factory in an export processing zone',
+    intro:
+      'October 1996. You moved into a real factory in the export processing zone: four lines, a cutting room, an office with two telephones. Korea wants padded jackets for winter, Sakura-ya wants yukata, Mrs. Lin wants baby wear, and Mr. Zhou in Guangdong sends what his own factory cannot sew. You cannot answer every fax yourself any more.',
+    days: 7,
+    rainDays: [],
+    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting', 'power', 'leaders', 'morale', 'training', 'planning', 'merchandising'],
+    newSystems: ['planning', 'merchandising'],
+    stations: [],
+    lines: [
+      { name: 'Line A', stations: [C, L, L, L, L, L, O, O, O, B, Q] },
+      { name: 'Line B', stations: [L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+      { name: 'Line C', stations: [L, L, L, L, L, L, L, L, Q] },
+      { name: 'Line D', stations: [L, L, L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+    ],
+    crew: { tam: 0, thu: 10, nhung: 23, quang: null, hai: null, son: null, linh: 34, lan: 35, thao: 36, trang: 37, hoa: 6, ngan: 7, huong: 1, bich: 2, cuc: 17, dung: 11, giang: 12, hanh: 38, kim: 18, phuong: 13, van: 14 },
+    crewLeads: { quang: 1, hai: 3 },
+    extraCrew: 26,
+    cash: 1800,
+    rent: 45,
+    applicants: 6,
+    starText: ['Ship the padded jackets, the yukata and the baby wear on time', '…and finish with $4,500 or more', '…with every order on time, no overtime and nobody quitting'],
+    applicantRoles: ['operator', 'mechanic', 'qc', 'cutter', 'electrician', 'leader', 'planner', 'merchandiser'],
+    script: [
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'padded',
+          buyer: 'hanil',
+          product: 'padded',
+          fob: true,
+          text: 'Padded jackets for the Korean winter, FOB. This is our biggest order with you. Do not miss the vessel. Ms. Park.',
+          optional: false,
+          options: [
+            { label: 'Early vessel', qty: 600, price: 30, dueDay: 6 },
+            { label: 'Winter lot', qty: 750, price: 30, dueDay: 7 },
+            { label: 'Big lot', qty: 900, price: 29, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'yukata',
+          buyer: 'sakuraya',
+          product: 'yukata',
+          text: 'Yukata for the summer festivals, CMT. Delicate cotton, strict inspection, sample first. Watanabe.',
+          optional: false,
+          sample: true,
+          options: [
+            { label: 'Festival lot', qty: 400, price: 18, dueDay: 5 },
+            { label: 'Catalogue lot', qty: 500, price: 18, dueDay: 6 },
+            { label: 'Big lot', qty: 650, price: 17.5, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'baby',
+          buyer: 'formosa',
+          product: 'baby',
+          text: 'Baby rompers, CMT, our cotton. Snaps must hold: mothers check. Mrs. Lin.',
+          optional: false,
+          options: [
+            { label: 'Small run', qty: 800, price: 9, dueDay: 5 },
+            { label: 'Shop run', qty: 1000, price: 9, dueDay: 6 },
+            { label: 'Big run', qty: 1300, price: 8.8, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'shirts',
+          buyer: 'hanil',
+          product: 'shirt',
+          text: 'And shirts, as always. CMT. Ms. Park.',
+          optional: false,
+          options: [
+            { label: 'Shirts', qty: 900, price: 8.2, dueDay: 5 },
+            { label: 'More shirts', qty: 1100, price: 8.2, dueDay: 6 },
+            { label: 'Many shirts', qty: 1300, price: 8, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 2,
+        minute: 10 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'pearl1',
+          buyer: 'pearl',
+          product: 'shorts',
+          text: 'My factory is full. 400 shorts, CMT, in two days. Price is price. Zhou.',
+          optional: true,
+          options: [{ label: 'Overflow', qty: 400, price: 4, dueDay: 4 }],
+        },
+      },
+      {
+        day: 3,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'favour',
+          buyer: 'golden',
+          product: 'workwear',
+          text: 'Your uncle said you would help. 300 jackets, CMT, the shipyard cannot wait. I do not take no. Mr. Leung.',
+          optional: false,
+          requires: 'ch1.uncle=accept',
+          options: [{ label: 'Uncle Sáu’s favour', qty: 300, price: 20, dueDay: 6 }],
+        },
+      },
+      {
+        day: 4,
+        minute: 10 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'pearl2',
+          buyer: 'pearl',
+          product: 'shirt',
+          text: 'Again full. 500 shirts, CMT, by day 6. Zhou.',
+          optional: true,
+          options: [{ label: 'Overflow', qty: 500, price: 6.8, dueDay: 6 }],
+        },
+      },
+    ],
+    family: {
+      flag: 'ch6.ut',
+      when: 'start',
+      title: 'Út comes back',
+      body: 'Út is back: from the bench, or from Osaka with a degree and a Japanese address book. Út wants a real job in the new factory.',
+      options: [
+        { id: 'merch', label: 'Út runs the merchandising', effect: 'A free merchandiser who answers routine faxes' },
+        { id: 'lead', label: 'Út leads line C', effect: 'A free line leader on the yukata line' },
       ],
     },
   },

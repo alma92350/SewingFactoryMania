@@ -4,6 +4,7 @@ import { stepAgents } from './agents';
 import { stepShipments } from './sourcing';
 import { planDay, stepPower, tickPower } from './power';
 import { stepLeaders } from './leader';
+import { officeWork } from './office';
 import { bonusCost, morningSickness, nightlyMorale, nightlyQuits, tetReturns } from './morale';
 import { checkOrders, pushDecision, pushFamily, pushFamily2, shipOrder } from './orders';
 import { generateApplicants } from './people';
@@ -29,6 +30,7 @@ export function step(s: GameState): SimEvent[] {
 
   fireScript(s, events);
   if (has(s, 'sourcing')) stepShipments(s, events);
+  officeWork(s, events);
   if (s.decisions.length > 0) return events;
   checkOrders(s, events);
   if (s.decisions.length > 0) return events;
@@ -194,6 +196,7 @@ export function endDay(s: GameState): SimEvent[] {
     w.fatigue *= 1 - s.tuning.nightRecovery;
     if (w.absent) {
       w.absent = false;
+      w.sick = false;
       w.station = null;
     }
     w.arriveAt = s.minute;

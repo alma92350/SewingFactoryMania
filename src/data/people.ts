@@ -66,6 +66,11 @@ export const CREW: Record<string, PersonDef> = {
   van: { id: 'van', name: 'Vân', role: 'operator', skill: sk(0.85, 0.6, 0.7), traits: ['quickLearner'], wage: 1.5, familiar: [], note: 'Studies accounting at night.' },
   tam: { id: 'tam', name: 'Tâm', role: 'cutter', skill: { ...sk(0.5, 0.5, 0.5, 0.4), cutting: 0.92 }, traits: [], wage: 1.8, familiar: [], note: 'Never wastes a centimetre of fabric.' },
   thu: { id: 'thu', name: 'Thu', role: 'qc', skill: { ...sk(0.5, 0.5, 0.5, 0.9) }, traits: ['careful'], wage: 1.7, familiar: ['qc'], note: 'Passed Mr. Watanabe’s inspection twice.' },
+  // last year's team in the export zone (Chapter 6)
+  quang: { id: 'quang', name: 'Quang', role: 'leader', skill: sk(0.7, 0.7, 0.7, 0.6), traits: [], wage: 2.8, familiar: [], note: 'Ran line B through the Tết rush.' },
+  hai: { id: 'hai', name: 'Hải', role: 'leader', skill: sk(0.7, 0.7, 0.7, 0.6), traits: ['radio'], wage: 2.8, familiar: [], note: 'Came from a state factory in Hải Phòng.' },
+  son: { id: 'son', name: 'Sơn', role: 'electrician', skill: sk(0.4, 0.4, 0.4, 0.3), traits: [], wage: 2.4, familiar: [], note: 'Knows every cable in the zone.' },
+  nhung: { id: 'nhung', name: 'Nhung', role: 'qc', skill: sk(0.5, 0.5, 0.5, 0.88), traits: ['careful'], wage: 1.7, familiar: ['qc'], note: 'Sharp eyes, sharper tongue.' },
   ut: { id: 'ut', name: 'Út', role: 'operator', skill: sk(0.6, 0.6, 0.6, 0.6), traits: ['quickLearner', 'radio'], wage: 0, familiar: [], note: 'Your youngest sibling. Family: no wage.' },
 };
 

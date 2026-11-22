@@ -5,7 +5,7 @@ import { PRODUCTS, type MachineType } from '../data/products';
 import { makeWorker } from './state';
 import { deliverBuyerFabric, inspectByCutter, rejectRolls, scrapForRecut } from './sourcing';
 import { generatorDecision } from './power';
-import { bacTuScissors, payBonus, tetVolunteers } from './morale';
+import { bacTuScissors, payBonus, tetVolunteers, utReturns } from './morale';
 import { aqlPlan, chapterOf, has, inspectionLevel, orderById, orderValue } from './selectors';
 import type { Bundle, Decision, GameState, Order, SimEvent } from './types';
 
@@ -257,7 +257,9 @@ function pushCutoff(s: GameState, o: Order, events: SimEvent[]): void {
 
 /** Simplified AQL inspection: sample without replacement from the finished lot. */
 export function runInspection(s: GameState, o: Order, events: SimEvent[]): void {
-  const plan = aqlPlan(o.finished, inspectionLevel(o), s.mods.inspectionShift);
+  // Út studied in Osaka: from Chapter 6 Sakura-ya trusts the factory a little more
+  const trust = o.buyer === 'sakuraya' && s.campaign['ch2.ut'] === 'osaka' && has(s, 'merchandising') ? 1 : 0;
+  const plan = aqlPlan(o.finished, inspectionLevel(o), s.mods.inspectionShift + trust);
   let left = o.finished;
   let bad = o.lotDefects;
   let found = 0;
@@ -392,6 +394,7 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
         s.power.closedUntil = s.tuning.shiftEnd;
       }
       if (d.flag === 'ch5.scissors') bacTuScissors(s, optionId);
+      if (d.flag === 'ch6.ut') utReturns(s, optionId);
       if (d.flag === 'ch5.tet') {
         if (optionId === 'home') s.closedToday = true;
         else tetVolunteers(s);

@@ -135,6 +135,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
   }
   if (ch.systems.includes('hiring')) s.applicants = generateApplicants(s, true);
   planDay(s);
+  for (const [id, line] of Object.entries(ch.crewLeads ?? {})) if (s.lines[line]) s.lines[line]!.leaderId = id;
   if (ch.extraCrew) {
     // veterans fill empty sewing machines, line by line in turn
     const free = s.stations.filter((st) => st.workerId === null && st.machine !== 'qc' && st.machine !== 'cutting');

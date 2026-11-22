@@ -49,6 +49,15 @@ export const BUYERS: Record<string, BuyerDef> = {
     inspection: 'normal',
     colour: '#00897b',
   },
+  pearl: {
+    id: 'pearl',
+    name: 'Pearl River Garments',
+    contact: 'Mr. Zhou',
+    habit: 'Sends his overflow when his own factory is full. Urgent, cheap, never twice the same.',
+    origin: 'Guangdong',
+    inspection: 'relaxed',
+    colour: '#6d4c41',
+  },
   golden: {
     id: 'golden',
     name: 'Golden Harbour Trading',

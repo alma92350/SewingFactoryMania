@@ -63,6 +63,8 @@ export interface Worker {
   note: string;
   /** A senior who is teaching this worker (mentoring, Chapter 5+). */
   mentor: string | null;
+  /** Off sick today (paid: sick pay), as opposed to on holiday. */
+  sick?: boolean;
 }
 
 export interface Agent {
