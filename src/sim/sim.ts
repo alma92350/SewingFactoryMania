@@ -1,7 +1,8 @@
 import { BUYERS } from '../data/buyers';
 import { PRODUCTS } from '../data/products';
 import { stepAgents } from './agents';
-import { checkOrders, pushDecision, pushFamily } from './orders';
+import { stepShipments } from './sourcing';
+import { checkOrders, pushDecision, pushFamily, shipOrder } from './orders';
 import { generateApplicants } from './people';
 import { stepStation } from './production';
 import { actionable, chapterOf, dailyWages, has, isLunch, lineEfficiency, shiftEndMinute, workerById } from './selectors';
@@ -19,6 +20,7 @@ export function step(s: GameState): SimEvent[] {
   const t = s.tuning;
 
   fireScript(s, events);
+  if (has(s, 'sourcing')) stepShipments(s, events);
   if (s.decisions.length > 0) return events;
   checkOrders(s, events);
   if (s.decisions.length > 0) return events;
@@ -129,6 +131,12 @@ export function endDay(s: GameState): void {
   if (s.phase !== 'report') return;
   const ch = chapterOf(s);
   if (s.day >= ch.days) {
+    // the chapter ends: whatever is still on the floor ships short
+    for (const o of s.orders) if (o.status === 'active' || o.status === 'queued') shipOrder(s, o, [], true);
+    if (s.loan > 0) {
+      s.cash -= s.loan;
+      s.loan = 0;
+    }
     s.phase = 'done';
     if (ch.family?.when === 'end') pushFamily(s);
     return;

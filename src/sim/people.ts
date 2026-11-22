@@ -26,13 +26,22 @@ export function generateApplicants(s: GameState, firstMorning = false): Applican
 
 function makeApplicant(s: GameState, role: Role, name: string): Applicant {
   const base = () => r2(0.45 + rand(s.rng) * 0.45);
-  const skill: Record<MachineType, number> = { lockstitch: base(), overlock: base(), buttonhole: base(), qc: r2(0.3 + rand(s.rng) * 0.2) };
+  const bh = base();
+  const skill: Record<MachineType, number> = {
+    lockstitch: base(),
+    overlock: base(),
+    buttonhole: bh,
+    bartack: bh,
+    cutting: r2(0.4 + rand(s.rng) * 0.25),
+    qc: r2(0.3 + rand(s.rng) * 0.2),
+  };
   if (role === 'qc') skill.qc = r2(0.8 + rand(s.rng) * 0.15);
-  if (role === 'mechanic') skill.qc = 0.3;
+  if (role === 'cutter') skill.cutting = r2(0.85 + rand(s.rng) * 0.12);
+  if (role !== 'operator') skill.qc = role === 'qc' ? skill.qc : 0.3;
   const traits: TraitId[] = [];
   if (role === 'operator' && rand(s.rng) < 0.6) traits.push(pick(s.rng, Object.keys(TRAITS) as TraitId[]));
   const avg = (skill.lockstitch + skill.overlock) / 2;
-  const wage = role === 'mechanic' ? 2.2 : role === 'qc' ? 1.7 : r2(0.9 + avg * 0.9);
+  const wage = { mechanic: 2.2, qc: 1.7, cutter: 1.8, electrician: 2.4, leader: 2.8, operator: r2(0.9 + avg * 0.9) }[role];
   return {
     id: `a${s.day}-${randInt(s.rng, 1000, 9999)}-${name}`,
     name,

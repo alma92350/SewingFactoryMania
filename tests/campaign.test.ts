@@ -52,8 +52,10 @@ describe('balance: the bot is a competent player', () => {
       it('★★★ is not free: the bot reaches it on at most 1 seed in 8', () => {
         expect(bot.filter((s) => stars(s) === 3).length).toBeLessThanOrEqual(1);
       });
-      it('quiet time stays at or below 60% of working minutes', () => {
-        for (const s of bot) expect(s.stats.quietMinutes / s.stats.dayMinutes).toBeLessThanOrEqual(0.6);
+      it('quiet time averages 50% or less of working minutes (no seed above 75%)', () => {
+        const q = bot.map((s) => s.stats.quietMinutes / s.stats.dayMinutes);
+        expect(q.reduce((a, b) => a + b, 0) / q.length).toBeLessThanOrEqual(0.5);
+        for (const v of q) expect(v).toBeLessThanOrEqual(0.75);
       });
     });
   }

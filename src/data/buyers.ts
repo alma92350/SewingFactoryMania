@@ -40,6 +40,15 @@ export const BUYERS: Record<string, BuyerDef> = {
     inspection: 'strict',
     colour: '#c2185b',
   },
+  formosa: {
+    id: 'formosa',
+    name: 'Formosa Threadworks',
+    contact: 'Mrs. Lin',
+    habit: 'Sells you thread and machines, and sends small orders to friends.',
+    origin: 'Taiwan',
+    inspection: 'normal',
+    colour: '#00897b',
+  },
   golden: {
     id: 'golden',
     name: 'Golden Harbour Trading',

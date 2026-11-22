@@ -3,6 +3,7 @@ import { BUYERS } from '../data/buyers';
 import { CREW } from '../data/people';
 import { PRODUCTS, type MachineType } from '../data/products';
 import { makeWorker } from './state';
+import { deliverBuyerFabric, inspectByCutter, rejectRolls, scrapForRecut } from './sourcing';
 import { aqlPlan, chapterOf, has, inspectionLevel, orderById, orderValue } from './selectors';
 import type { Bundle, Decision, GameState, Order, SimEvent } from './types';
 
@@ -14,6 +15,24 @@ export interface NewOrder {
   price: number;
   dueDay: number;
   sample?: boolean;
+  line?: number;
+  fob?: boolean;
+}
+
+/** New orders go to an idle line, else to the line with the least work queued. */
+function pickLine(s: GameState): number {
+  const idle = s.lines.findIndex((l) => l.activeOrderId === null);
+  if (idle >= 0) return idle;
+  let best = 0;
+  let bestWork = Infinity;
+  s.lines.forEach((_, i) => {
+    const work = s.orders.filter((o) => o.line === i && (o.status === 'active' || o.status === 'queued')).reduce((a, o) => a + o.qty - o.finished, 0);
+    if (work < bestWork) {
+      best = i;
+      bestWork = work;
+    }
+  });
+  return best;
 }
 
 export function createOrder(s: GameState, n: NewOrder): Order {
@@ -26,6 +45,13 @@ export function createOrder(s: GameState, n: NewOrder): Order {
     price: n.price,
     dueDay: n.dueDay,
     originalDue: n.dueDay,
+    line: n.line ?? pickLine(s),
+    mode: n.fob ? 'fob' : 'cmt',
+    uncut: 0,
+    markerEff: s.tuning.markerAuto,
+    markerSet: !(n.fob && has(s, 'cutting')),
+    cutFabric: [],
+    recutPieces: 0,
     status: 'queued',
     cut: 0,
     finished: 0,
@@ -44,7 +70,20 @@ export function createOrder(s: GameState, n: NewOrder): Order {
     onTime: null,
   };
   s.orders.push(o);
-  if (s.activeOrderId === null) activateOrder(s, o);
+  if (has(s, 'cutting') && o.mode === 'cmt') deliverBuyerFabric(s, o);
+  if (!o.markerSet) {
+    pushDecision(s, {
+      kind: 'marker',
+      title: 'Lay the marker',
+      body: `${PRODUCTS[o.product]!.plural[0]!.toUpperCase()}${PRODUCTS[o.product]!.plural.slice(1)} for ${BUYERS[o.buyer]!.contact}: you pay for the fabric. A tighter marker (how the pattern pieces sit on the fabric) means fewer rolls to buy.`,
+      options: [
+        { id: 'play', label: 'Lay it yourself (15 s)', detail: `Up to ${Math.round(s.tuning.markerBest * 100)}% of the fabric used` },
+        { id: 'auto', label: 'Use the standard marker', detail: `${Math.round(s.tuning.markerAuto * 100)}% of the fabric used` },
+      ],
+      orderId: o.id,
+    });
+  }
+  if (s.lines[o.line]!.activeOrderId === null) activateOrder(s, o);
   return o;
 }
 
@@ -55,20 +94,24 @@ export function createOrder(s: GameState, n: NewOrder): Order {
  */
 export function activateOrder(s: GameState, o: Order, layout?: (number | null)[]): void {
   o.status = 'active';
-  s.activeOrderId = o.id;
-  o.cut = Math.ceil((o.qty - o.finished) / s.tuning.bundleSize);
+  s.lines[o.line]!.activeOrderId = o.id;
+  if (has(s, 'cutting')) {
+    o.uncut = Math.ceil((o.qty - o.finished) / s.tuning.bundleSize);
+    o.cut = 0;
+  } else o.cut = Math.ceil((o.qty - o.finished) / s.tuning.bundleSize);
   const ops = PRODUCTS[o.product]!.ops;
   if (layout) {
     s.stations.forEach((st, i) => {
-      if (st.machine === 'qc') return;
+      if (st.machine === 'qc' || st.machine === 'cutting' || st.line !== o.line) return;
       const k = layout[i];
       st.opId = k === null || k === undefined ? null : ops[k]!.id;
     });
   } else {
-    const types = [...new Set(s.stations.map((st) => st.machine))].filter((t) => t !== 'qc') as MachineType[];
+    const lineStations = s.stations.filter((st) => st.line === o.line);
+    const types = [...new Set(lineStations.map((st) => st.machine))].filter((t) => t !== 'qc' && t !== 'cutting') as MachineType[];
     for (const t of types) {
       // staffed machines get the operations first, so the crew covers every step it can
-      const stations = s.stations
+      const stations = lineStations
         .filter((st) => st.machine === t)
         .sort((a, b) => Number(a.workerId === null) - Number(b.workerId === null) || a.index - b.index);
       const tops = ops.filter((op) => op.machine === t);
@@ -156,19 +199,22 @@ export function shipOrder(s: GameState, o: Order, events: SimEvent[], short = fa
   o.onTime = !short && !o.airFreight && s.day <= o.originalDue;
   clearOrderWip(s, o.id);
   if (has(s, 'orders')) events.push({ kind: 'shipped', orderId: o.id, amount: o.revenue });
-  if (s.activeOrderId === o.id) {
-    s.activeOrderId = null;
-    const next = s.orders.find((q) => q.status === 'queued');
+  const line = s.lines[o.line]!;
+  if (line.activeOrderId === o.id) {
+    line.activeOrderId = null;
+    const next = s.orders.find((q) => q.status === 'queued' && q.line === o.line);
     if (next) activateOrder(s, next);
   }
 }
 
 /** Once a minute: ship finished orders, call the inspector, and enforce the vessel cut-off. */
 export function checkOrders(s: GameState, events: SimEvent[]): void {
-  const o = s.orders.find((q) => q.id === s.activeOrderId);
-  if (o && o.status === 'active' && o.finished >= o.qty && wipCount(s, o.id) === 0 && !s.decisions.some((d) => d.orderId === o.id)) {
-    if (has(s, 'quality') && inspectionLevel(o) !== 'none') runInspection(s, o, events);
-    else if (has(s, 'orders')) shipOrder(s, o, events);
+  for (const line of s.lines) {
+    const o = s.orders.find((q) => q.id === line.activeOrderId);
+    if (o && o.status === 'active' && o.finished >= o.qty && wipCount(s, o.id) === 0 && !s.decisions.some((d) => d.orderId === o.id)) {
+      if (has(s, 'quality') && inspectionLevel(o) !== 'none') runInspection(s, o, events);
+      else if (has(s, 'orders')) shipOrder(s, o, events);
+    }
   }
   if (has(s, 'orders') && s.minute === s.tuning.shiftEnd - 1) {
     for (const q of s.orders) {
@@ -262,19 +308,25 @@ export function recheckLot(s: GameState, o: Order): number {
 }
 
 export function sendRework(s: GameState, orderId: number, opId: string, pieces: number): void {
+  const order = orderById(s, orderId);
+  if (opId === 'fabric') {
+    if (order) scrapForRecut(s, order, pieces);
+    return;
+  }
+  const line = order?.line ?? 0;
   for (let left = pieces; left > 0; left -= s.tuning.bundleSize) {
     const b: Bundle = { id: s.nextId++, orderId, pieces: Math.min(s.tuning.bundleSize, left), done: 0, defects: 0, origins: {}, rework: true, pAcc: 0 };
-    const target = bestStationFor(s, opId);
+    const target = bestStationFor(s, opId, null, line);
     if (target) target.pile.push(b);
   }
 }
 
 /** Where a bundle goes next: fewest waiting, avoid stopped or empty stations. */
-export function bestStationFor(s: GameState, opId: string, exclude: number | null = null) {
+export function bestStationFor(s: GameState, opId: string, exclude: number | null = null, line: number | null = null) {
   let best: GameState['stations'][number] | null = null;
   let bestScore = Infinity;
   for (const st of s.stations) {
-    if (st.opId !== opId || st.index === exclude) continue;
+    if (st.opId !== opId || st.index === exclude || (line !== null && st.line !== line)) continue;
     const score = (st.broken || st.workerId === null ? 100 : 0) + st.pile.length + (st.current ? 1 : 0);
     if (score < bestScore) {
       best = st;
@@ -301,18 +353,22 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
   const d = s.decisions.find((x) => x.id === id);
   if (!d) return 'That decision is no longer open.';
   if (!d.options.some((o) => o.id === optionId)) return 'Unknown option.';
-  if (d.kind === 'sample' && optionId === 'play') return 'Play the sample check first.';
+  if ((d.kind === 'sample' || d.kind === 'marker' || d.kind === 'fabric') && optionId === 'play') return 'Play the check first.';
   s.decisions = s.decisions.filter((x) => x.id !== id);
   const o = d.orderId !== undefined ? orderById(s, d.orderId) : undefined;
   switch (d.kind) {
     case 'fax': {
       if (optionId === 'decline') break;
       const q = d.fax!.options[Number(optionId)]!;
-      createOrder(s, { tag: d.fax!.tag, buyer: d.fax!.buyer, product: d.fax!.product, qty: q.qty, price: q.price, dueDay: q.dueDay, sample: d.fax!.sample });
+      createOrder(s, { tag: d.fax!.tag, buyer: d.fax!.buyer, product: d.fax!.product, qty: q.qty, price: q.price, dueDay: q.dueDay, sample: d.fax!.sample, fob: d.fax!.fob });
       break;
     }
     case 'family':
       s.campaign[d.flag!] = optionId;
+      if (d.flag === 'ch3.loan' && optionId === 'borrow') {
+        s.cash += 300;
+        s.loan = 330;
+      }
       if (d.flag === 'ch2.ut' && optionId === 'join') s.workers.push(makeWorker(CREW.ut!, s.tuning, null, s.minute));
       break;
     case 'cutoff':
@@ -344,6 +400,15 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
       break;
     case 'sample':
       if (o) applySampleResult(o, 1);
+      break;
+    case 'marker':
+      if (o) {
+        o.markerEff = s.tuning.markerAuto;
+        o.markerSet = true;
+      }
+      break;
+    case 'fabric':
+      if (optionId === 'cutter' && d.shipmentId !== undefined) rejectRolls(s, inspectByCutter(s, d.shipmentId));
       break;
     case 'info':
       break;

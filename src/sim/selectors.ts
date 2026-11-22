@@ -33,8 +33,9 @@ export function workerById(s: GameState, id: string | null): Worker | undefined 
   return id === null ? undefined : s.workers.find((w) => w.id === id);
 }
 
-export function activeOrder(s: GameState): Order | undefined {
-  return s.orders.find((o) => o.id === s.activeOrderId);
+export function activeOrder(s: GameState, line = 0): Order | undefined {
+  const id = s.lines[line]?.activeOrderId;
+  return id === null || id === undefined ? undefined : s.orders.find((o) => o.id === id);
 }
 
 export function orderById(s: GameState, id: number): Order | undefined {
@@ -103,29 +104,29 @@ export function isWorking(s: GameState, st: Station): boolean {
   return s.phase === 'shift' && !isLunch(s) && !hasBlockingDecision(s) && st.current !== null && stationRate(s, st) > 0;
 }
 
-export function productOps(s: GameState): OperationDef[] {
-  const o = activeOrder(s);
+export function productOps(s: GameState, line = 0): OperationDef[] {
+  const o = activeOrder(s, line);
   return o ? PRODUCTS[o.product]!.ops : [];
 }
 
 /** Capacity per operation of the active product (pieces/hour), summing every station on it. */
-export function opCapacities(s: GameState): Record<string, number> {
+export function opCapacities(s: GameState, line = 0): Record<string, number> {
   const cap: Record<string, number> = {};
-  for (const op of productOps(s)) cap[op.id] = 0;
-  for (const st of s.stations) if (st.opId !== null && st.opId in cap) cap[st.opId]! += stationRate(s, st);
+  for (const op of productOps(s, line)) cap[op.id] = 0;
+  for (const st of s.stations) if (st.line === line && st.opId !== null && st.opId in cap) cap[st.opId]! += stationRate(s, st);
   return cap;
 }
 
-export function bottleneck(s: GameState): string | null {
-  const cap = opCapacities(s);
+export function bottleneck(s: GameState, line = 0): string | null {
+  const cap = opCapacities(s, line);
   const ids = Object.keys(cap);
   if (ids.length === 0) return null;
   return ids.reduce((a, b) => (cap[b]! < cap[a]! ? b : a));
 }
 
 /** Line output now in pieces/hour (the bottleneck). */
-export function lineRate(s: GameState): number {
-  const cap = Object.values(opCapacities(s));
+export function lineRate(s: GameState, line = 0): number {
+  const cap = Object.values(opCapacities(s, line));
   return cap.length ? Math.min(...cap) : 0;
 }
 
@@ -142,13 +143,13 @@ export function workMinutesPerDay(s: GameState): number {
 }
 
 /** Projected finish for an order at the current line rate: game day (fractional) or Infinity. */
-export function projectedFinishDay(s: GameState, o: Order): number {
-  const rate = lineRate(s) / 60;
+export function projectedFinishDay(s: GameState, o: Order, margin = 1): number {
+  const rate = (lineRate(s, o.line) / 60) * margin;
   if (rate <= 0) return Infinity;
   let piecesAhead = o.qty - o.finished;
   for (const q of s.orders) {
     if (q.id === o.id) break;
-    if (q.status === 'active' || q.status === 'queued') piecesAhead += q.qty - q.finished;
+    if (q.line === o.line && (q.status === 'active' || q.status === 'queued')) piecesAhead += q.qty - q.finished;
   }
   let minutes = piecesAhead / rate;
   const today = workMinutesLeftToday(s);
@@ -215,7 +216,7 @@ export function actionable(s: GameState): boolean {
   if (s.decisions.length) return true;
   for (const st of s.stations) {
     if (st.broken && !s.repairQueue.includes(st.index) && !s.agents.some((a) => a.target === st.index)) return true;
-    if (st.pile.length >= 5) return true;
+    if (st.pile.length >= 4) return true;
   }
   const emptySeat = s.stations.some((st) => st.opId !== null && st.workerId === null);
   if (emptySeat && s.workers.some((w) => w.role !== 'mechanic' && w.station === null && !w.absent)) return true;

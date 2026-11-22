@@ -19,12 +19,16 @@ export interface Bundle {
   origins: Record<string, number>;
   /** A rework bundle returns to QC (or packing) after its repair operation. */
   rework: boolean;
+  /** Condition of the roll it was cut from (sourcing chapters). */
+  fabric?: RollCondition;
   /** Accumulated defect probability × pieces at the current operation. */
   pAcc: number;
 }
 
 export interface Station {
   index: number;
+  /** Which sewing line the machine belongs to. */
+  line: number;
   machine: MachineType;
   opId: string | null;
   workerId: string | null;
@@ -68,6 +72,38 @@ export interface Agent {
   until: number;
 }
 
+export interface Line {
+  name: string;
+  activeOrderId: number | null;
+}
+
+export type RollCondition = 'good' | 'flawed' | 'offShade';
+
+export interface Roll {
+  id: number;
+  orderId: number;
+  metres: number;
+  condition: RollCondition;
+  /** Set aside after inspection: never cut. */
+  rejected: boolean;
+  supplier: string;
+  /** Stored on pallets (safe from roof leaks). */
+  dry: boolean;
+}
+
+export interface Shipment {
+  id: number;
+  supplier: string;
+  orderId: number;
+  rolls: number;
+  cost: number;
+  arriveDay: number;
+  arriveMinute: number;
+  delayed: boolean;
+  wrongColour: boolean;
+  status: 'transit' | 'arrived';
+}
+
 export type OrderStatus = 'queued' | 'active' | 'shipped' | 'short';
 
 export interface DefectCause {
@@ -76,6 +112,7 @@ export interface DefectCause {
   learn: number;
   wear: number;
   fatigue: number;
+  fabric: number;
   byWorker: Record<string, number>;
 }
 
@@ -97,6 +134,17 @@ export interface Order {
   price: number;
   dueDay: number;
   originalDue: number;
+  line: number;
+  /** CMT: buyer supplies fabric. FOB: you buy it. */
+  mode: 'cmt' | 'fob';
+  /** Bundles still to be cut at the cutting table (sourcing chapters). */
+  uncut: number;
+  markerEff: number;
+  markerSet: boolean;
+  /** Fabric condition of each cut bundle waiting for the first operation. */
+  cutFabric: RollCondition[];
+  /** Pieces scrapped for fabric defects, waiting to be cut again. */
+  recutPieces: number;
   status: OrderStatus;
   /** Bundles not yet cut into the line. */
   cut: number;
@@ -123,7 +171,7 @@ export interface DecisionOption {
   detail?: string;
 }
 
-export type DecisionKind = 'fax' | 'family' | 'cutoff' | 'inspection' | 'change' | 'sample' | 'info';
+export type DecisionKind = 'fax' | 'family' | 'cutoff' | 'inspection' | 'change' | 'sample' | 'marker' | 'fabric' | 'power' | 'info';
 
 export interface Decision {
   id: number;
@@ -132,6 +180,7 @@ export interface Decision {
   body: string;
   options: DecisionOption[];
   orderId?: number;
+  shipmentId?: number;
   fax?: FaxDef;
   flag?: string;
   addPct?: number;
@@ -149,6 +198,7 @@ export interface Applicant {
 
 export interface Ledger {
   revenue: number;
+  materials: number;
   wages: number;
   rent: number;
   electricity: number;
@@ -180,11 +230,16 @@ export interface GameState {
   overtime: boolean;
   phase: 'shift' | 'report' | 'done';
   stations: Station[];
+  warehouse: Roll[];
+  shipments: Shipment[];
+  /** Family loan to repay at the end of the chapter. */
+  loan: number;
+  pallets: boolean;
   workers: Worker[];
   agents: Agent[];
   repairQueue: number[];
   orders: Order[];
-  activeOrderId: number | null;
+  lines: Line[];
   nextId: number;
   cash: number;
   ledger: Ledger;

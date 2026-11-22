@@ -15,7 +15,7 @@ export interface ChapterOptions {
 }
 
 export function emptyLedger() {
-  return { revenue: 0, wages: 0, rent: 0, electricity: 0, freight: 0, penalties: 0 };
+  return { revenue: 0, materials: 0, wages: 0, rent: 0, electricity: 0, freight: 0, penalties: 0 };
 }
 
 export function makeWorker(p: PersonDef | (Omit<PersonDef, 'familiar'> & { familiar?: string[] }), tuning: Tuning, station: number | null, minute: number): Worker {
@@ -58,10 +58,13 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     breakdowns *= 0.7;
   }
 
-  const stations: Station[] = ch.stations.map((machine, index) => ({
+  const lineDefs = ch.lines ?? [{ name: 'Line A', stations: ch.stations }];
+  const flat = lineDefs.flatMap((l, line) => l.stations.map((machine) => ({ machine, line })));
+  const stations: Station[] = flat.map(({ machine, line }, index) => ({
     index,
+    line,
     machine,
-    opId: machine === 'qc' ? 'qc' : null,
+    opId: machine === 'qc' ? 'qc' : machine === 'cutting' ? 'cut' : null,
     workerId: null,
     broken: false,
     wear: 0,
@@ -93,11 +96,15 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     overtime: false,
     phase: 'shift',
     stations,
+    warehouse: [],
+    shipments: [],
+    loan: 0,
+    pallets: false,
     workers,
     agents: [{ id: 'director', kind: 'director', target: null, task: null, pos: -1, leftAt: 0, arriveAt: 0, until: 0 }],
     repairQueue: [],
     orders: [],
-    activeOrderId: null,
+    lines: lineDefs.map((l) => ({ name: l.name, activeOrderId: null })),
     nextId: 1,
     cash: Math.round(cash),
     ledger: emptyLedger(),
@@ -116,6 +123,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     activateOrder(s, o, ch.id === 'ch0' ? [0, 1, 2, null, 3, 4, 5] : undefined);
   }
   if (ch.systems.includes('hiring')) s.applicants = generateApplicants(s, true);
+  if (ch.index > 2 && campaign['ch2.ut'] === 'join') s.workers.push(makeWorker(CREW.ut!, tuning, null, tuning.shiftStart));
   if (ch.family && ch.family.when === 'start') pushFamily(s);
   return s;
 }

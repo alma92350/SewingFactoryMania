@@ -1,6 +1,7 @@
 import { chance } from '../core/rng';
 import { PRODUCTS } from '../data/products';
 import { bestStationFor, sendRework } from './orders';
+import { stepCutting } from './sourcing';
 import {
   activeOrder,
   opDef,
@@ -26,13 +27,14 @@ export function defectTerms(s: GameState, st: Station, w: Worker): { p: number; 
   const lrn = 1 + t.defectLearn * Math.max(0, 1 - learn);
   const wear = 1 + t.defectWear * st.wear;
   const fatigue = 1 + t.fatigueDefects * w.fatigue;
-  const order = activeOrder(s);
+  const order = activeOrder(s, st.line);
   const p = op.risk * skill * lrn * wear * fatigue * traitDefects(w) * s.mods.defects * (order?.sampleFactor ?? 1);
   return { p, skill, learn: lrn, wear, fatigue };
 }
 
 function recordCause(o: Order, opId: string, w: Worker, n: number, terms: ReturnType<typeof defectTerms>): void {
-  const c: DefectCause = (o.causes[opId] ??= { count: 0, skill: 0, learn: 0, wear: 0, fatigue: 0, byWorker: {} });
+  const c: DefectCause = (o.causes[opId] ??= { count: 0, skill: 0, learn: 0, wear: 0, fatigue: 0, fabric: 0, byWorker: {} });
+  c.fabric ??= 0;
   c.count += n;
   // attribute each defect to the factors in proportion to how much they raised the risk
   const ex = { skill: terms.skill - 1, learn: terms.learn - 1, wear: terms.wear - 1, fatigue: terms.fatigue - 1 };
@@ -46,17 +48,18 @@ function recordCause(o: Order, opId: string, w: Worker, n: number, terms: Return
 
 export function stepStation(s: GameState, st: Station, events: SimEvent[]): void {
   if (stationStopped(s, st) || st.opId === null) return;
+  if (st.machine === 'cutting') return stepCutting(s, st);
   const w = workerById(s, st.workerId);
   if (!w || w.arriveAt > s.minute || w.absent) return;
 
   if (!st.current) {
     if (st.pile.length > 0) st.current = st.pile.shift()!;
     else {
-      const o = activeOrder(s);
+      const o = activeOrder(s, st.line);
       const first = o ? PRODUCTS[o.product]!.ops[0]!.id : null;
       if (o && o.status === 'active' && st.opId === first && o.cut > 0 && o.sampled) {
         o.cut -= 1;
-        st.current = { id: s.nextId++, orderId: o.id, pieces: s.tuning.bundleSize, done: 0, defects: 0, origins: {}, rework: false, pAcc: 0 };
+        st.current = { id: s.nextId++, orderId: o.id, pieces: s.tuning.bundleSize, done: 0, defects: 0, origins: {}, rework: false, pAcc: 0, fabric: o.cutFabric.shift() };
       } else return;
     }
   }
@@ -92,6 +95,7 @@ export function stepStation(s: GameState, st: Station, events: SimEvent[]): void
 }
 
 function drawDefects(s: GameState, st: Station, w: Worker, b: Bundle): void {
+  if (b.fabric && b.fabric !== 'good') fabricDefects(s, w, b);
   const p = b.pAcc / b.pieces;
   b.pAcc = 0;
   let n = 0;
@@ -104,8 +108,25 @@ function drawDefects(s: GameState, st: Station, w: Worker, b: Bundle): void {
 }
 
 /** Garments go to the QC table only when someone sits there; otherwise they are packed unchecked. */
-function qcStationExists(s: GameState): boolean {
-  return s.stations.some((st) => st.opId === 'qc' && st.workerId !== null && !workerById(s, st.workerId)?.absent);
+/** Off-shade rolls spoil every piece; flawed rolls raise the risk. Both are traced to the fabric. */
+function fabricDefects(s: GameState, w: Worker, b: Bundle): void {
+  let n = 0;
+  if (b.fabric === 'offShade') n = b.pieces - b.defects;
+  else for (let i = b.defects; i < b.pieces; i++) if (chance(s.rng, s.tuning.flawedRisk)) n += 1;
+  b.fabric = 'good';
+  if (n === 0) return;
+  b.defects += n;
+  b.origins.fabric = (b.origins.fabric ?? 0) + n;
+  const o = orderById(s, b.orderId);
+  if (!o) return;
+  const c: DefectCause = (o.causes.fabric ??= { count: 0, skill: 0, learn: 0, wear: 0, fatigue: 0, fabric: 0, byWorker: {} });
+  c.count += n;
+  c.fabric = (c.fabric ?? 0) + n;
+  c.byWorker[w.id] = (c.byWorker[w.id] ?? 0) + n;
+}
+
+function qcStationExists(s: GameState, line: number): boolean {
+  return s.stations.some((st) => st.line === line && st.opId === 'qc' && st.workerId !== null && !workerById(s, st.workerId)?.absent);
 }
 
 function route(s: GameState, from: Station, b: Bundle, events: SimEvent[]): void {
@@ -115,15 +136,15 @@ function route(s: GameState, from: Station, b: Bundle, events: SimEvent[]): void
   const idx = ops.findIndex((x) => x.id === from.opId);
   const next = b.rework ? undefined : ops[idx + 1];
   if (next) {
-    const target = bestStationFor(s, next.id);
+    const target = bestStationFor(s, next.id, null, from.line);
     if (target) {
       target.pile.push({ ...b, done: 0, pAcc: 0 });
       events.push({ kind: 'bundleDone', station: from.index, to: target.index });
       return;
     }
   }
-  if (qcStationExists(s)) {
-    const qc = bestStationFor(s, 'qc')!;
+  if (qcStationExists(s, from.line)) {
+    const qc = bestStationFor(s, 'qc', null, from.line)!;
     qc.pile.push({ ...b, done: 0, pAcc: 0 });
     events.push({ kind: 'bundleDone', station: from.index, to: qc.index });
     return;

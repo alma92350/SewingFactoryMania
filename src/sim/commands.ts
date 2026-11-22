@@ -1,4 +1,5 @@
 import { applySampleResult, bestStationFor, resolveDecision } from './orders';
+import { buyFabric, rejectRolls } from './sourcing';
 import { makeWorker } from './state';
 import { endDay } from './sim';
 import { has, opDef, orderById, posOf, walkMinutes, workerById } from './selectors';
@@ -13,7 +14,11 @@ export type Command =
   | { type: 'hire'; applicant: string }
   | { type: 'letGo'; workerId: string }
   | { type: 'overtime'; on: boolean }
-  | { type: 'sleep' };
+  | { type: 'sleep' }
+  | { type: 'buy'; supplier: string; orderId: number; rolls: number }
+  | { type: 'marker'; decision: number; eff: number }
+  | { type: 'fabricResult'; decision: number; rolls: number[] }
+  | { type: 'pallets' };
 
 export type CommandResult = { ok: true; events: SimEvent[] } | { ok: false; error: string };
 
@@ -51,6 +56,38 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
       if (!has(s, 'orders')) return no('No overtime in this chapter.');
       if (s.phase !== 'shift' || s.minute >= s.tuning.shiftEnd) return no('Too late to change overtime today.');
       s.overtime = c.on;
+      return ok();
+    case 'buy': {
+      if (!has(s, 'sourcing')) return no('No sourcing in this chapter.');
+      const err = buyFabric(s, c.supplier, c.orderId, Math.floor(c.rolls));
+      return err ? no(err) : ok();
+    }
+    case 'marker': {
+      const d = s.decisions.find((x) => x.id === c.decision && x.kind === 'marker');
+      if (!d) return no('No marker to lay.');
+      const o = orderById(s, d.orderId!);
+      if (o) {
+        o.markerEff = Math.max(0.6, Math.min(s.tuning.markerBest, c.eff));
+        o.markerSet = true;
+      }
+      s.decisions = s.decisions.filter((x) => x.id !== c.decision);
+      return ok();
+    }
+    case 'fabricResult': {
+      const d = s.decisions.find((x) => x.id === c.decision && x.kind === 'fabric');
+      if (!d) return no('No fabric to inspect.');
+      rejectRolls(s, s.warehouse.filter((r) => c.rolls.includes(r.id)));
+      s.decisions = s.decisions.filter((x) => x.id !== c.decision);
+      return ok();
+    }
+    case 'pallets':
+      if (!has(s, 'sourcing')) return no('No warehouse in this chapter.');
+      if (s.pallets) return no('The warehouse already has pallets.');
+      if (s.cash < s.tuning.palletsCost) return no('Not enough cash.');
+      s.cash -= s.tuning.palletsCost;
+      s.ledger.materials += s.tuning.palletsCost;
+      s.pallets = true;
+      for (const r of s.warehouse) r.dry = true;
       return ok();
     case 'sleep':
       if (s.phase !== 'report') return no('The shift is not over yet.');
@@ -102,7 +139,7 @@ function setOp(s: GameState, station: number, opId: string | null): CommandResul
   }
   if (st.opId === opId) return no('Already on that operation.');
   if (st.opId !== null) {
-    const keeper = bestStationFor(s, st.opId, st.index);
+    const keeper = bestStationFor(s, st.opId, st.index, st.line);
     if (!keeper) return no(`${opDef(st.opId).name} needs at least one machine.`);
     if (st.current) keeper.pile.unshift(st.current);
     keeper.pile.push(...st.pile);

@@ -16,6 +16,8 @@ const C = {
   lockstitch: '#3b4a5a',
   overlock: '#5a4a6a',
   buttonhole: '#2f5d62',
+  bartack: '#6d4c41',
+  cutting: '#8d6e63',
   broken: '#c0392b',
   warn: '#d98a00',
   danger: '#c0392b',

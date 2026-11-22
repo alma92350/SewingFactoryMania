@@ -1,7 +1,7 @@
 /** Crew, traits and the applicant pool (PRD §7). */
 import type { MachineType } from './products';
 
-export type Role = 'operator' | 'mechanic' | 'qc';
+export type Role = 'operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader';
 export type TraitId = 'fastLoose' | 'careful' | 'oldHand' | 'quickLearner' | 'tireless' | 'radio';
 
 export interface TraitDef {
@@ -36,7 +36,14 @@ export interface PersonDef {
   note: string;
 }
 
-const sk = (lockstitch: number, overlock: number, buttonhole = 0.5, qc = 0.4): Record<MachineType, number> => ({ lockstitch, overlock, buttonhole, qc });
+const sk = (lockstitch: number, overlock: number, buttonhole = 0.5, qc = 0.4): Record<MachineType, number> => ({
+  lockstitch,
+  overlock,
+  buttonhole,
+  qc,
+  bartack: buttonhole,
+  cutting: 0.55,
+});
 
 /** The original workshop crew. Chapters pick from this list. */
 export const CREW: Record<string, PersonDef> = {
@@ -71,4 +78,7 @@ export const ROLE_NOTES: Record<Role, string> = {
   operator: '',
   mechanic: 'Fixes machines fast and changes needles before they snap.',
   qc: 'Checks every garment at the QC table and sends defects back for repair.',
+  cutter: 'Spreads and cuts fabric fast at the cutting table, and spots bad rolls.',
+  electrician: 'Starts the generator in a power cut and keeps it serviced.',
+  leader: 'Line leader: balances one line for you, moving people to the bottleneck.',
 };

@@ -1,7 +1,7 @@
 /** Chapters 0–2 (PRD §11, Phase 1). Progressive disclosure is data: `systems` gates panels and commands. */
 import type { MachineType } from './products';
 
-export type SystemId = 'line' | 'orders' | 'hiring' | 'quality' | 'mechanic';
+export type SystemId = 'line' | 'orders' | 'hiring' | 'quality' | 'mechanic' | 'sourcing' | 'cutting' | 'power' | 'leaders';
 
 export interface QuoteOption {
   label: string;
@@ -20,6 +20,8 @@ export interface FaxDef {
   optional: boolean;
   /** A sample must be approved before bulk sewing (Spot the Defect). */
   sample?: boolean;
+  /** FOB: you buy the fabric. Default CMT (the buyer supplies it). */
+  fob?: boolean;
   /** Campaign flag required for this fax to arrive, e.g. "ch1.uncle=accept". */
   requires?: string;
 }
@@ -54,6 +56,8 @@ export interface ChapterDef {
   systems: SystemId[];
   newSystems: SystemId[];
   stations: MachineType[];
+  /** Optional: several lines (names and machines). When set, `stations` is ignored. */
+  lines?: { name: string; stations: MachineType[] }[];
   /** Worker id → starting station (null = bench). */
   crew: Record<string, number | null>;
   cash: number;
@@ -64,13 +68,14 @@ export interface ChapterDef {
   script: ScriptEvent[];
   family?: FamilyScene;
   /** Applicant roles available in this chapter. */
-  applicantRoles: ('operator' | 'mechanic' | 'qc')[];
+  applicantRoles: ('operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader')[];
 }
 
 const L: MachineType = 'lockstitch';
 const O: MachineType = 'overlock';
 const B: MachineType = 'buttonhole';
 const Q: MachineType = 'qc';
+const C: MachineType = 'cutting';
 
 export const CHAPTERS: ChapterDef[] = [
   {
@@ -118,7 +123,7 @@ export const CHAPTERS: ChapterDef[] = [
     crew: { hoa: 3, thao: 2, huong: 1, linh: 0, ngan: 4, trang: 6, lan: 7 },
     cash: 150,
     rent: 6,
-    starText: ['Ship Hanil’s shirts on time', '…and finish with $1,000 or more', '…and ship every order on time without overtime'],
+    starText: ['Ship Hanil’s shirts on time', '…and finish with $950 or more', '…and ship every order on time without overtime'],
     applicantRoles: ['operator'],
     script: [
       {
@@ -133,7 +138,7 @@ export const CHAPTERS: ChapterDef[] = [
           optional: false,
           options: [
             { label: 'Small and soon', qty: 1000, price: 7.4, dueDay: 4 },
-            { label: 'Standard', qty: 1300, price: 7.6, dueDay: 5 },
+            { label: 'Standard', qty: 1200, price: 8, dueDay: 5 },
             { label: 'Big and later', qty: 1600, price: 7.3, dueDay: 6 },
           ],
         },
@@ -224,6 +229,80 @@ export const CHAPTERS: ChapterDef[] = [
       options: [
         { id: 'join', label: 'Út joins the factory now', effect: 'Út joins the bench: a free quick learner' },
         { id: 'osaka', label: 'Út studies in Osaka', effect: 'Út writes with tips from Japanese factories: Sakura-ya samples are approved with the best rating' },
+      ],
+    },
+  },
+  {
+    id: 'ch3',
+    index: 3,
+    name: 'The Fabric Hunt',
+    year: 1994,
+    place: 'The hall, a warehouse and a cutting room',
+    intro:
+      'February 1994: the American embargo is lifted and everyone wants Vietnamese factories. Mr. Leung offers a real order, FOB: this time you buy the fabric yourself. Choose your suppliers well, inspect every roll, and keep the cutting table fed.',
+    days: 7,
+    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting'],
+    newSystems: ['sourcing', 'cutting'],
+    stations: [C, L, L, O, O, O, L, L, B, L, L, L, L, Q],
+    crew: { linh: 1, lan: 2, hoa: 3, ngan: 4, huong: 5, thao: 6, trang: 7 },
+    cash: 300,
+    rent: 14,
+    starText: ['Ship Mr. Leung’s work jackets on time', '…and finish with $1,500 or more', '…with no fabric defects, Hanil on time and no overtime'],
+    applicantRoles: ['operator', 'mechanic', 'qc', 'cutter'],
+    script: [
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'hanil3',
+          buyer: 'hanil',
+          product: 'shirt',
+          text: 'Small CMT order while you wait for your fabric? Our fabric arrives with the truck today. Ms. Park.',
+          optional: false,
+          options: [{ label: 'CMT shirts', qty: 600, price: 7.6, dueDay: 3 }],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'golden',
+          buyer: 'golden',
+          product: 'workwear',
+          fob: true,
+          text: 'Work jackets for a Kowloon shipyard. FOB: you buy the fabric, I pay more. No surprises, please. Mr. Leung.',
+          optional: false,
+          options: [
+            { label: 'Small lot', qty: 700, price: 19, dueDay: 6 },
+            { label: 'Shipyard lot', qty: 900, price: 19.5, dueDay: 7 },
+            { label: 'Big lot', qty: 1100, price: 19, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 5,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'formosa',
+          buyer: 'formosa',
+          product: 'shorts',
+          text: 'A friend in Taipei needs sports shorts quickly. Our fabric, CMT. Can you squeeze it in? Mrs. Lin.',
+          optional: true,
+          options: [{ label: 'Rush shorts', qty: 300, price: 4.8, dueDay: 7 }],
+        },
+      },
+    ],
+    family: {
+      flag: 'ch3.loan',
+      when: 'start',
+      title: 'Má’s savings',
+      body: '“Buying fabric before the buyer pays you is how factories die, con. I have $300 in the rice tin. Take it, and give me back $330 when the chapter is done.”',
+      options: [
+        { id: 'borrow', label: 'Borrow $300 from Má', effect: '+$300 now, −$330 at the end of the chapter' },
+        { id: 'no', label: 'Keep Má’s savings safe', effect: 'Less cash to buy fabric early' },
       ],
     },
   },

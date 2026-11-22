@@ -12,7 +12,7 @@ export function starChecks(s: GameState): [boolean, boolean, boolean] {
     case 'ch1': {
       const hanil = byTag('hanil');
       const one = !!hanil && hanil.status === 'shipped' && hanil.onTime === true;
-      const two = one && s.cash >= 1000;
+      const two = one && s.cash >= 950;
       const golden = byTag('golden');
       const all = s.orders.every((o) => o.status === 'shipped' && o.onTime === true);
       const three = two && !!golden && all && s.stats.overtimeDays === 0;
@@ -24,6 +24,14 @@ export function starChecks(s: GameState): [boolean, boolean, boolean] {
       const two = one && sk!.inspections[0]!.passed && s.cash >= 1400;
       const reorder = byTag('hanil2');
       const three = two && sk!.inspections.every((i) => i.found === 0) && !!reorder && reorder.status === 'shipped' && reorder.onTime === true && s.stats.overtimeDays === 0;
+      return [one, two, three];
+    }
+    case 'ch3': {
+      const g = byTag('golden');
+      const one = !!g && g.status === 'shipped' && g.onTime === true;
+      const two = one && s.cash >= 1500;
+      const h = byTag('hanil3');
+      const three = two && (g!.causes.fabric?.count ?? 0) === 0 && !!h && h.onTime === true && s.stats.overtimeDays === 0;
       return [one, two, three];
     }
   }

@@ -49,6 +49,13 @@ export const TUNING = {
   bankruptDays: 2,
 
   applicants: 4,
+
+  /** Sourcing and cutting (Chapter 3+). */
+  markerAuto: 0.78,
+  markerBest: 0.92,
+  cutterCatch: 0.6,
+  flawedRisk: 0.08,
+  palletsCost: 25,
 };
 
 export type Tuning = typeof TUNING;
