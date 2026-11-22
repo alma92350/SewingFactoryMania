@@ -151,3 +151,22 @@ describe('random scenarios are winnable and never crash (fuzz)', () => {
     }
   }, 120000);
 });
+
+describe('community gallery (PRD Phase 5)', () => {
+  it('every gallery code decodes, and every gallery scenario is winnable by the bot', async () => {
+    const { GALLERY, submitLink } = await import('../src/data/gallery');
+    expect(GALLERY.length).toBeGreaterThanOrEqual(6);
+    for (const g of GALLERY) {
+      const sc = decodeScenario(g.code);
+      expect(sc, g.title).not.toBeNull();
+      if (sc!.days === 0) continue;
+      const def = prepareScenario(scenarioDef(sc!), sc!.seed);
+      const s = createChapter(def.id, sc!.seed);
+      runChapter(s, makeBot());
+      expect(stars(s), g.title).toBeGreaterThanOrEqual(1);
+    }
+    const link = submitLink('Test', GALLERY[0]!.code);
+    expect(link.startsWith('https://github.com/alma92350/SewingFactoryMania/issues/new?')).toBe(true);
+    expect(decodeURIComponent(link)).toContain(GALLERY[0]!.code);
+  }, 60000);
+});

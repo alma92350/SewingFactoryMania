@@ -19,6 +19,8 @@ import {
   type SeasonId,
 } from '../data/scenario';
 import { MODIFIERS } from '../data/generated';
+import { GALLERY } from '../data/gallery';
+import { decodeScenario } from '../data/scenario';
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const STRICT: [string, string][] = [
@@ -76,7 +78,7 @@ export function scenarioEditorHtml(sc: Scenario, message = ''): string {
       <label>Seed <input id="scn-seed" type="number" inputmode="numeric" min="1" max="999999" value="${sc.seed}"></label>
     </div>
     <p class="small muted">Share code</p><div class="share"><code id="scn-codeview">${esc(encodeScenario(sc))}</code></div>
-    <div class="buttons"><button data-action="title">Menu</button><button data-action="scnCopy">Copy code</button><button data-action="scnLink">Copy link</button><button class="primary" data-action="scnPlay">Play this scenario</button></div>
+    <div class="buttons"><button data-action="title">Menu</button><button data-action="scnCopy">Copy code</button><button data-action="scnLink">Copy link</button><button data-action="scnSubmit">Submit to the gallery</button><button class="primary" data-action="scnPlay">Play this scenario</button></div>
     <details class="ach"><summary>Load a code</summary><div class="row"><input id="scn-code" aria-label="Scenario code" placeholder="SFM1-…"><button class="mini" data-action="scnLoad">Load</button></div></details></div>`;
 }
 
@@ -100,4 +102,18 @@ export function readScenarioForm(root: ParentNode, prev: Scenario): Scenario {
     modifiers: checked('scn-mod'),
     seed: Number(val('scn-seed') ?? prev.seed),
   });
+}
+
+/** The community gallery: curated scenarios, each playable or editable. */
+export function galleryHtml(): string {
+  const rows = GALLERY.map((g, i) => {
+    const sc = decodeScenario(g.code);
+    if (!sc) return '';
+    const facts = [`${sc.lines} line${sc.lines > 1 ? 's' : ''}`, sc.days ? `${sc.days} days` : 'Endless', sc.era === '2007' ? '2007' : '1990s', ...(sc.season !== 'none' ? [SEASON_TEXT[sc.season].name] : [])];
+    return `<div class="supplier"><div><b>${esc(g.title)}</b><div class="muted small">${facts.map(esc).join(' · ')} · <span>by</span> ${esc(g.author)}</div></div>
+      <div class="row"><button class="mini" data-action="galEdit" data-arg="${i}">Open in editor</button><button class="mini primary" data-action="galPlay" data-arg="${i}">Play</button></div></div>`;
+  }).join('');
+  return `<div class="card editor" role="dialog" aria-labelledby="gal-title"><h2 id="gal-title">Community gallery</h2>
+    <p class="small muted">Scenarios made by players and checked before they are added. Make your own in the scenario editor and press “Submit to the gallery”.</p>
+    ${rows}<div class="buttons"><button data-action="title">Menu</button><button data-action="editor">Scenario editor</button></div></div>`;
 }

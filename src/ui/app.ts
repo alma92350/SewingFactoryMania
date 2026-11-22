@@ -16,7 +16,8 @@ import { CHAPTER_BY_ID } from '../data/chapters';
 import { cosmetic, type CosmeticSlot } from '../data/cosmetics';
 import { isCampaignChapter, scrapbookHtml, scrapPage } from './scrapbook';
 import { DEFAULT_SCENARIO, decodeScenario, encodeScenario, scenarioDef, seasonOf, type Scenario } from '../data/scenario';
-import { readScenarioForm, scenarioEditorHtml } from './editor';
+import { galleryHtml, readScenarioForm, scenarioEditorHtml } from './editor';
+import { GALLERY, submitLink } from '../data/gallery';
 import { prepareScenario } from '../sim/meta';
 import { playFabricInspection, playMarker, playSpotTheDefect } from './minigame';
 import { PRODUCTS } from '../data/products';
@@ -536,6 +537,29 @@ export class App {
         return;
       case 'editor':
         this.showEditor();
+        return;
+      case 'gallery':
+        this.s = null;
+        document.body.classList.add('at-title');
+        this.overlay.hidden = false;
+        this.overlay.innerHTML = trHtml(galleryHtml());
+        this.renders.overlay = '';
+        return;
+      case 'galEdit':
+      case 'galPlay': {
+        const sc = decodeScenario(GALLERY[Number(arg)]?.code ?? '');
+        if (!sc) return;
+        this.scn = sc;
+        if (name === 'galEdit') this.showEditor();
+        else {
+          const def = prepareScenario(scenarioDef(sc), sc.seed);
+          this.startChapter(def.id, sc.seed);
+        }
+        return;
+      }
+      case 'scnSubmit':
+        this.readEditor();
+        window.open(submitLink(this.scn.name, encodeScenario(this.scn)), '_blank', 'noopener');
         return;
       case 'scnAdd':
         this.readEditor();

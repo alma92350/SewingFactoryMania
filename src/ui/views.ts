@@ -470,7 +470,8 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink
     <div class="sandbox"><span><b>Sandbox</b><small>${unlockedSandbox ? `Endless factory${p.sandboxBest ? ` · best ${p.sandboxBest} days` : ''}` : 'Unlocks after Chapter 2'}</small></span>${[1, 2, 3, 4]
       .map((n) => `<button class="mini chip" data-action="sandbox" data-arg="${n}" ${unlockedSandbox ? '' : 'disabled'}>${n} line${n > 1 ? 's' : ''}</button>`)
       .join('')}</div>
-    <button class="chapter" data-action="editor" ${unlockedSandbox ? '' : 'disabled'}><span class="num">✎</span><span><b>Scenario editor</b><small>${unlockedSandbox ? 'Build a factory, invent buyers, share the code' : 'Unlocks after Chapter 2'}</small></span></button></div>
+    <button class="chapter" data-action="editor" ${unlockedSandbox ? '' : 'disabled'}><span class="num">✎</span><span><b>Scenario editor</b><small>${unlockedSandbox ? 'Build a factory, invent buyers, share the code' : 'Unlocks after Chapter 2'}</small></span></button>
+    <button class="chapter" data-action="gallery" ${unlockedSandbox ? '' : 'disabled'}><span class="num">❖</span><span><b>Community gallery</b><small>${unlockedSandbox ? 'Scenarios made by players' : 'Unlocks after Chapter 2'}</small></span></button></div>
     <details class="ach"><summary>Achievements · ${got.length}/${ACHIEVEMENTS.length}</summary><ul class="goals">${ACHIEVEMENTS.map((a) => `<li class="${got.includes(a.id) ? 'ok' : 'muted'}">${got.includes(a.id) ? '🏅' : '○'} <b>${esc(a.name)}</b>: <span>${esc(a.text)}</span></li>`).join('')}</ul></details>
     <div class="row center"><button class="mini" data-action="scrapbook">📖 The scrapbook</button></div>
     <details class="ach"><summary>Looks · stars unlock caps, collars, calendars and radio songs</summary>${cosmeticsHtml(p.cosmetics ?? {}, career.total, p.campaign.cat === 'adopt')}</details>

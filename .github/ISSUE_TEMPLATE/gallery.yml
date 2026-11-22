@@ -1,0 +1,18 @@
+name: Gallery submission
+description: Share a scenario made in the scenario editor
+title: "Gallery submission: "
+labels: [gallery]
+body:
+  - type: textarea
+    id: code
+    attributes:
+      label: Scenario code
+      description: Paste the code from "Copy code" in the scenario editor (it starts with SFM1-).
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What makes it fun?
+      description: A sentence or two. Please do not include personal information.
