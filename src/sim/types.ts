@@ -245,7 +245,7 @@ export interface GameState {
   campaign: Record<string, string>;
   systems: SystemId[];
   tuning: Tuning;
-  mods: { breakdowns: number; defects: number; inspectionShift: number };
+  mods: { breakdowns: number; defects: number; inspectionShift: number; suppliers?: number };
   day: number;
   minute: number;
   overtime: boolean;
@@ -262,6 +262,10 @@ export interface GameState {
   tet: { bonusPaid: boolean; closed: boolean; volunteers: boolean; returned: number; left: string[] } | null;
   /** Merchandiser policy: which quote to pick on routine faxes, and whether to take optional orders. */
   policy: { quote: number; extras: boolean };
+  /** Chapter 7: new markets being explored (the first fax arrives on `day`). */
+  prospects: { market: string; day: number; sent: boolean }[];
+  /** Chapter 7: the macro shock, once it has happened. */
+  macro: { day: number; buyer: string; cutPieces: number } | null;
   /** Today the factory is closed (no wages, nobody sews). */
   closedToday: boolean;
   workers: Worker[];
@@ -289,6 +293,7 @@ export interface GameState {
     leaderMoves: number;
     perfectSample: boolean;
     bestMarker: number;
+    layoffs: number;
   };
   failed: string | null;
 }

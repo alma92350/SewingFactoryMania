@@ -8,6 +8,7 @@ import { officeWork } from './office';
 import { bonusCost, morningSickness, nightlyMorale, nightlyQuits, tetReturns } from './morale';
 import { checkOrders, lineCanMake, pushDecision, pushFamily, pushFamily2, shipOrder } from './orders';
 import { sandboxFaxOptions } from '../data/generated';
+import { macroShock, prospectFaxes } from './macro';
 import { generateApplicants } from './people';
 import { stepStation } from './production';
 import { actionable, chapterOf, dailyWages, has, isLunch, lineEfficiency, shiftEndMinute, workerById } from './selectors';
@@ -78,6 +79,7 @@ function fireScript(s: GameState, events: SimEvent[]): void {
     });
     events.push({ kind: 'decision', id: d.id });
   }
+  prospectFaxes(s, events);
   const script = ch.script;
   script.forEach((e, i) => {
     if (s.firedEvents.includes(i) || e.day !== s.day || e.minute > s.minute) return;
@@ -110,6 +112,8 @@ function fireScript(s: GameState, events: SimEvent[]): void {
       w.station = null;
       w.absent = true;
       events.push({ kind: 'note', text: e.text });
+    } else if (e.kind === 'shock') {
+      macroShock(s, e.buyer, e.cutPct, e.text, events);
     } else if (e.kind === 'flood') {
       for (const sh of s.shipments) if (sh.status === 'transit') sh.arriveDay += 1;
       events.push({ kind: 'note', text: e.text });

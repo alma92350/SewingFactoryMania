@@ -1,4 +1,5 @@
 import { chapterOf } from './selectors';
+import { newCustomers } from './macro';
 import type { GameState, Order } from './types';
 
 /** Chapter goals (★ / ★★ / ★★★). Each entry says whether that star is earned. */
@@ -66,6 +67,12 @@ export function starChecks(s: GameState): [boolean, boolean, boolean] {
       const one = main.every((o) => !!o && o.status === 'shipped' && o.onTime === true && o.discount === 0);
       const two = one && s.cash >= 4500;
       const three = two && s.orders.every((o) => o.status === 'shipped' && o.onTime === true) && s.stats.overtimeDays === 0 && s.stats.quits === 0;
+      return [one, two, three];
+    }
+    case 'ch7': {
+      const one = s.failed === null && s.cash >= 3000;
+      const two = one && s.orders.every((o) => o.status === 'shipped' && o.onTime === true) && newCustomers(s) >= 2;
+      const three = two && (s.stats.layoffs ?? 0) === 0 && s.stats.overtimeDays === 0 && s.cash >= 4500;
       return [one, two, three];
     }
   }

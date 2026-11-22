@@ -96,7 +96,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     campaign,
     systems: [...ch.systems],
     tuning,
-    mods: { breakdowns, defects: diff.defects, inspectionShift: diff.inspectionShift },
+    mods: { breakdowns, defects: diff.defects, inspectionShift: diff.inspectionShift, suppliers: diff.suppliers },
     day: 1,
     minute: tuning.shiftStart,
     overtime: false,
@@ -112,6 +112,8 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     welfare: { fans: false, canteen: false, water: false },
     tet: ch.tetDay ? { bonusPaid: false, closed: false, volunteers: false, returned: 0, left: [] } : null,
     policy: { quote: 1, extras: true },
+    prospects: [],
+    macro: null,
     closedToday: false,
     workers,
     agents: [{ id: 'director', kind: 'director', target: null, task: null, pos: -1, leftAt: 0, arriveAt: 0, until: 0 }],
@@ -126,7 +128,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     applicants: [],
     negativeDays: 0,
     firedEvents: [],
-    stats: { breakdowns: 0, dayBreakdowns: 0, dayPieces: 0, quietMinutes: 0, dayMinutes: 0, overtimeDays: 0, quits: 0, sickDays: 0, leaderMoves: 0, perfectSample: false, bestMarker: 0 },
+    stats: { breakdowns: 0, dayBreakdowns: 0, dayPieces: 0, quietMinutes: 0, dayMinutes: 0, overtimeDays: 0, quits: 0, sickDays: 0, leaderMoves: 0, perfectSample: false, bestMarker: 0, layoffs: 0 },
     failed: null,
   };
 

@@ -1,3 +1,4 @@
+import { masAdvice } from './macro';
 import { chance, rand } from '../core/rng';
 import { BUYERS } from '../data/buyers';
 import { CREW } from '../data/people';
@@ -395,6 +396,7 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
       }
       if (d.flag === 'ch5.scissors') bacTuScissors(s, optionId);
       if (d.flag === 'ch6.ut') utReturns(s, optionId);
+      if (d.flag === 'ch7.ma') masAdvice(s, optionId, events);
       if (d.flag === 'ch5.tet') {
         if (optionId === 'home') s.closedToday = true;
         else tetVolunteers(s);

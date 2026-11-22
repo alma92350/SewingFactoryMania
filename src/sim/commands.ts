@@ -1,6 +1,7 @@
 import { applySampleResult, bestStationFor, resolveDecision } from './orders';
 import { buyFabric, rejectRolls } from './sourcing';
 import { buyWelfare } from './morale';
+import { layoffBlocked, prospect } from './macro';
 import { makeWorker } from './state';
 import { endDay } from './sim';
 import { has, opDef, orderById, posOf, walkMinutes, workerById } from './selectors';
@@ -23,7 +24,8 @@ export type Command =
   | { type: 'lead'; workerId: string; line: number | null }
   | { type: 'welfare'; item: 'fans' | 'canteen' | 'water' }
   | { type: 'mentor'; junior: string; senior: string | null }
-  | { type: 'policy'; quote: number; extras: boolean };
+  | { type: 'policy'; quote: number; extras: boolean }
+  | { type: 'prospect'; market: string };
 
 export type CommandResult = { ok: true; events: SimEvent[] } | { ok: false; error: string };
 
@@ -58,6 +60,10 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
       return hire(s, c.applicant);
     case 'letGo':
       return letGo(s, c.workerId);
+    case 'prospect': {
+      const err = prospect(s, c.market);
+      return err ? no(err) : ok();
+    }
     case 'overtime':
       if (!has(s, 'orders')) return no('No overtime in this chapter.');
       if (s.phase !== 'shift' || s.minute >= s.tuning.shiftEnd) return no('Too late to change overtime today.');
@@ -211,7 +217,9 @@ function hire(s: GameState, id: string): CommandResult {
 function letGo(s: GameState, workerId: string): CommandResult {
   const w = workerById(s, workerId);
   if (!w) return no('Unknown worker.');
+  if (layoffBlocked(s)) return no('You promised Má: nobody is let go this year.');
   if (w.station !== null) s.stations[w.station]!.workerId = null;
+  s.stats.layoffs = (s.stats.layoffs ?? 0) + 1;
   const severance = Math.round(w.wage * 2 * 100) / 100;
   s.cash -= severance;
   s.ledger.wages += severance;

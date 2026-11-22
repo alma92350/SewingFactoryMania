@@ -43,7 +43,8 @@ export function buyFabric(s: GameState, supplierId: string, orderId: number, rol
   if (s.cash < cost) return `Not enough cash: ${rolls} rolls cost $${cost}.`;
   s.cash -= cost;
   s.ledger.materials += cost;
-  const late = chance(s.rng, sup.late);
+  const sm = s.mods.suppliers ?? 1;
+  const late = chance(s.rng, Math.min(0.9, sup.late * sm));
   s.shipments.push({
     id: s.nextId++,
     supplier: sup.id,
@@ -53,7 +54,7 @@ export function buyFabric(s: GameState, supplierId: string, orderId: number, rol
     arriveDay: s.day + sup.leadDays + (late ? sup.lateDays : 0),
     arriveMinute: 10 * 60,
     delayed: late,
-    wrongColour: chance(s.rng, sup.wrongColour),
+    wrongColour: chance(s.rng, Math.min(0.9, sup.wrongColour * sm)),
     status: 'transit',
   });
   return null;

@@ -458,7 +458,10 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink
     }</span></button>`;
   }).join('');
   const diffs = Object.values(DIFFICULTIES)
-    .map((d) => `<button data-action="difficulty" data-arg="${d.id}" aria-pressed="${p.difficulty === d.id}" title="${esc(d.blurb)}">${d.name}</button>`)
+    .map((d) => {
+      const locked = !!d.unlockAfter && !(p.stars[d.unlockAfter] ?? 0);
+      return `<button data-action="difficulty" data-arg="${d.id}" aria-pressed="${p.difficulty === d.id}" title="${esc(locked ? `Unlocks after Chapter ${d.unlockAfter!.slice(2)}` : d.blurb)}" ${locked ? 'disabled' : ''}>${locked ? '🔒 ' : ''}${d.name}</button>`;
+    })
     .join('');
   return `<div class="title"><h1>Sewing<span>Factory</span>Mania</h1><p class="sub">Saigon, 1992. Six machines, a family workshop, and the whole world wanting shirts.</p>
     ${hasSave ? `<button class="primary big" data-action="continue">Continue <small>${esc(saveLabel)}</small></button>` : ''}

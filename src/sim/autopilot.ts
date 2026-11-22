@@ -60,6 +60,12 @@ export function makeBot(cfg: BotConfig = {}) {
         if (!s.welfare[item] && s.cash > s.tuning.welfareCost[item] + dailyWages(s) * 3) act(applyCommand(s, { type: 'welfare', item }));
       }
     }
+    // after the shock, look for new customers while there is time and cash
+    if (has(s, 'diversify') && s.macro && s.minute === 8 * 60) {
+      for (const m of ['saigon', 'uniform', 'europe']) {
+        if (s.cash > dailyWages(s) * 4) act(applyCommand(s, { type: 'prospect', market: m }));
+      }
+    }
     if (cfg.exploit && has(s, 'orders') && s.minute === 15 * 60 && !s.overtime) act(applyCommand(s, { type: 'overtime', on: true }));
 
     const o = activeOrder(s);

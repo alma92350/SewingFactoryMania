@@ -14,7 +14,9 @@ export type SystemId =
   | 'morale'
   | 'training'
   | 'planning'
-  | 'merchandising';
+  | 'merchandising'
+  | 'macro'
+  | 'diversify';
 
 export interface QuoteOption {
   label: string;
@@ -46,7 +48,8 @@ export type ScriptEvent =
   | { day: number; minute: number; kind: 'flood'; text: string }
   | { day: number; minute: number; kind: 'bonus' }
   | { day: number; minute: number; kind: 'tet' }
-  | { day: number; minute: number; kind: 'family2' };
+  | { day: number; minute: number; kind: 'family2' }
+  | { day: number; minute: number; kind: 'shock'; buyer: string; cutPct: number; text: string };
 
 export interface FamilyOption {
   id: string;
@@ -693,6 +696,146 @@ export const CHAPTERS: ChapterDef[] = [
       options: [
         { id: 'merch', label: 'Út runs the merchandising', effect: 'A free merchandiser who answers routine faxes' },
         { id: 'lead', label: 'Út leads line C', effect: 'A free line leader on the yukata line' },
+      ],
+    },
+  },
+  {
+    id: 'ch7',
+    index: 7,
+    name: 'The Storm from the North',
+    year: 1997,
+    place: 'The export zone, December 1997',
+    intro:
+      'December 1997. Since the summer, money has been running away from Bangkok, Jakarta and Seoul. Your bank, frightened, called back most of its loan last week. Your four lines are full, your people have families, and Ms. Park has not called for two days. Má comes to the factory for the first time in a year. She does not say why.',
+    days: 7,
+    rainDays: [],
+    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting', 'power', 'leaders', 'morale', 'training', 'planning', 'merchandising', 'macro', 'diversify'],
+    newSystems: ['macro', 'diversify'],
+    stations: [],
+    lines: [
+      { name: 'Line A', stations: [C, L, L, L, L, L, O, O, O, B, Q] },
+      { name: 'Line B', stations: [L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+      { name: 'Line C', stations: [L, L, L, L, L, L, L, L, Q] },
+      { name: 'Line D', stations: [L, L, L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+    ],
+    crew: { tam: 0, thu: 10, nhung: 23, quang: null, hai: null, son: null, linh: 34, lan: 35, thao: 36, trang: 37, hoa: 6, ngan: 7, huong: 1, bich: 2, cuc: 17, dung: 11, giang: 12, hanh: 38, kim: 18, phuong: 13, van: 14 },
+    crewLeads: { quang: 1, hai: 3 },
+    extraCrew: 26,
+    cash: 1500,
+    rent: 45,
+    applicants: 4,
+    starText: ['Keep the factory open: finish with $3,000 or more', '…with every order on time and two new customers', '…with nobody laid off, no overtime and $4,500 or more'],
+    applicantRoles: ['operator', 'mechanic', 'qc', 'cutter', 'electrician', 'leader', 'planner', 'merchandiser'],
+    script: [
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'hanil7',
+          buyer: 'hanil',
+          product: 'shirt',
+          text: 'Shirts for the spring, CMT, as every year. Ms. Park.',
+          optional: false,
+          options: [
+            { label: 'Spring lot', qty: 1500, price: 8.2, dueDay: 6 },
+            { label: 'Big spring lot', qty: 1800, price: 8.2, dueDay: 7 },
+            { label: 'Everything', qty: 2100, price: 8, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'padded7',
+          buyer: 'hanil',
+          product: 'padded',
+          fob: true,
+          text: 'And padded jackets, FOB, for the late winter sale. Ms. Park.',
+          optional: false,
+          options: [
+            { label: 'Late winter', qty: 600, price: 30, dueDay: 6 },
+            { label: 'Big sale', qty: 750, price: 30, dueDay: 7 },
+            { label: 'Everything', qty: 900, price: 29, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'yukata7',
+          buyer: 'sakuraya',
+          product: 'yukata',
+          text: 'Yukata for next summer. Our customers buy less this year, so we buy carefully. Watanabe.',
+          optional: false,
+          options: [
+            { label: 'Careful lot', qty: 400, price: 18, dueDay: 6 },
+            { label: 'Usual lot', qty: 500, price: 18, dueDay: 7 },
+            { label: 'Big lot', qty: 600, price: 17.5, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'golden7',
+          buyer: 'golden',
+          product: 'workwear',
+          text: 'Hong Kong holds its dollar. The shipyards still need jackets. CMT. Mr. Leung.',
+          optional: false,
+          options: [
+            { label: 'Shipyard lot', qty: 500, price: 20, dueDay: 6 },
+            { label: 'Two shipyards', qty: 650, price: 20, dueDay: 7 },
+            { label: 'All of them', qty: 800, price: 19.5, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 2,
+        minute: 7 * 60,
+        kind: 'shock',
+        buyer: 'hanil',
+        cutPct: 60,
+        text: 'The won has lost half its value in a month. Ms. Park faxed at midnight: Hanil cancels most of what is still to be sewn. Korean orders are down 60%.',
+      },
+      {
+        day: 3,
+        minute: 10 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'pearl7',
+          buyer: 'pearl',
+          product: 'shirt',
+          text: 'My Korean orders are gone too. I can only send a little. 300 shirts, CMT, cheap. Zhou.',
+          optional: true,
+          options: [{ label: 'A little', qty: 300, price: 6.4, dueDay: 5 }],
+        },
+      },
+    ],
+    family: {
+      flag: 'ch7.leung',
+      when: 'end',
+      title: 'Uncle Sáu writes from Hong Kong',
+      body: 'Uncle Sáu has watched the storm from Kowloon. He asks how the family came through it, and whether you will keep the factory for another year.',
+      options: [
+        { id: 'stay', label: 'We stay, and we grow again', effect: 'The scrapbook ends with a fifth line in 1998' },
+        { id: 'rest', label: 'We stay, but slower', effect: 'The scrapbook ends with Sunday lunch at Má’s' },
+      ],
+    },
+    family2: {
+      flag: 'ch7.ma',
+      when: 'event',
+      title: 'Má’s advice',
+      body: 'Má sits in your office with a glass of tea and watches line A run out of work. “I opened this workshop with six machines in 1979. The people out there built it with me, then with you. Do what you must, con. But think about who you are.”',
+      options: [
+        { id: 'keep', label: '“Never lay off the people who built this”', effect: 'Morale +10%; you cannot let anyone go this chapter. The hard path.' },
+        { id: 'shrink', label: '“Keep the factory alive”: close the emptiest line', effect: 'Its workers go home with a week’s pay; the bank lends again (+$500); morale −10%. The safer path.' },
       ],
     },
   },
