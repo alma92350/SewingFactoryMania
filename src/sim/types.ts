@@ -65,6 +65,8 @@ export interface Worker {
   mentor: string | null;
   /** Off sick today (paid: sick pay), as opposed to on holiday. */
   sick?: boolean;
+  /** Chapter 9+: the city where this worker lives and works (used while on the bench). */
+  site?: string;
 }
 
 export interface Agent {
@@ -85,6 +87,8 @@ export interface Line {
   activeOrderId: number | null;
   /** Line leader (a worker with role "leader") who balances this line. */
   leaderId: string | null;
+  /** Chapter 9+: the city this line is in. */
+  site?: string;
 }
 
 export interface PowerState {
@@ -266,6 +270,8 @@ export interface GameState {
   policy: { quote: number; extras: boolean };
   /** Chapter 7: new markets being explored (the first fax arrives on `day`). */
   prospects: { market: string; day: number; sent: boolean }[];
+  /** Chapter 9+: where the director is, and when the current flight lands (0 = on the ground). */
+  director: { site: string; flightUntil: number } | null;
   /** Chapter 8: the US quota price per dozen (and its history). */
   quota: { price: number; history: number[] } | null;
   /** Chapter 8: the compliance audit. */
@@ -300,6 +306,7 @@ export interface GameState {
     perfectSample: boolean;
     bestMarker: number;
     layoffs: number;
+    flights?: number;
   };
   failed: string | null;
 }

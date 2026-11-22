@@ -164,10 +164,17 @@ export class Renderer {
   }
 
   /** Workers drawn on the floor (mechanics are drawn as agents; absent workers are at home). */
+  /** The city on screen (two cities, Chapter 9+): the site of the first visible line. */
+  private screenSite(s: GameState): string | null {
+    if (!s.director) return null;
+    return s.lines[this.layout.lineIds[0] ?? 0]?.site ?? null;
+  }
+
   private floorWorkers(s: GameState): Worker[] {
-    const onScreen = (st: number | null) => st === null || !!this.layout.byIndex[st];
+    const site = this.screenSite(s);
+    const onScreen = (w: Worker) => (w.station === null ? site === null || (w.site ?? s.lines[0]?.site) === site : !!this.layout.byIndex[w.station]);
     return s.workers.filter(
-      (w) => w.role !== 'mechanic' && w.role !== 'leader' && w.role !== 'electrician' && w.role !== 'planner' && w.role !== 'merchandiser' && !w.absent && onScreen(w.station),
+      (w) => w.role !== 'mechanic' && w.role !== 'leader' && w.role !== 'electrician' && w.role !== 'planner' && w.role !== 'merchandiser' && !w.absent && onScreen(w),
     );
   }
 
@@ -809,6 +816,15 @@ export class Renderer {
 
   private drawAgent(s: GameState, a: Agent, k: number, frac: number, timeMs: number): void {
     if (a.kind === 'mechanic' && workerById(s, a.id)?.absent) return;
+    const site = this.screenSite(s);
+    if (site !== null) {
+      if (a.kind === 'director' && (s.director!.flightUntil > 0 || s.director!.site !== site)) return;
+      if (a.kind === 'mechanic') {
+        const w = workerById(s, a.id);
+        const home = w ? (w.station !== null ? s.lines[s.stations[w.station]!.line]?.site : w.site) : null;
+        if (home && home !== site) return;
+      }
+    }
     const ctx = this.ctx;
     const r = this.layout.radius * 0.85;
     const p = this.agentPos(s, a, k, frac);

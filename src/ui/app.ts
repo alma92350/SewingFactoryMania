@@ -17,6 +17,7 @@ import { cosmetic, type CosmeticSlot } from '../data/cosmetics';
 import { isCampaignChapter, scrapbookHtml, scrapPage } from './scrapbook';
 import { DEFAULT_SCENARIO, decodeScenario, encodeScenario, scenarioDef, seasonOf, type Scenario } from '../data/scenario';
 import { galleryHtml, readScenarioForm, scenarioEditorHtml } from './editor';
+import { SITE_NAME } from '../sim/sites';
 import { GALLERY, submitLink } from '../data/gallery';
 import { prepareScenario } from '../sim/meta';
 import { playFabricInspection, playMarker, playSpotTheDefect } from './minigame';
@@ -248,7 +249,8 @@ export class App {
     el.innerHTML = trHtml(
       groups
         .map((g) => {
-          const label = g.map((l) => s.lines[l]!.name.slice(-1)).join(' + ');
+          const sitesHere = [...new Set(g.map((l) => s.lines[l]!.site).filter(Boolean))];
+          const label = sitesHere.length === 1 ? (SITE_NAME[sitesHere[0]!] ?? sitesHere[0]!) : g.map((l) => s.lines[l]!.name.slice(-1)).join(' + ');
           const on = g.join(',') === this.visibleLines.join(',');
           return `<button data-action="lines" data-arg="${g.join(',')}" aria-pressed="${on}" aria-label="Show lines ${label}">${label}${g.some(alarm) ? '<span class="alarm" aria-hidden="true"></span>' : ''}</button>`;
         })
@@ -369,6 +371,7 @@ export class App {
     if (s.campaign.cat === 'adopt' && has(s, 'sourcing')) this.queueTip('cat');
     if (has(s, 'quota') && s.orders.some((o) => o.buyer === 'atlantic')) this.queueTip('quota');
     if (has(s, 'compliance')) this.queueTip('compliance');
+    if (s.director) this.queueTip('sites');
   }
 
   // ───────────────────────────── input
@@ -717,6 +720,9 @@ export class App {
         return;
       case 'quota':
         this.command({ type: 'quota', orderId: Number(arg) });
+        return;
+      case 'travel':
+        this.command({ type: 'travel', site: arg });
         return;
       case 'policy': {
         const [quote, extras] = arg.split(':');

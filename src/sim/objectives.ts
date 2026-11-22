@@ -70,6 +70,13 @@ export function starChecks(s: GameState): [boolean, boolean, boolean] {
       const three = two && s.orders.every((o) => o.status === 'shipped' && o.onTime === true) && s.stats.overtimeDays === 0 && s.stats.quits === 0;
       return [one, two, three];
     }
+    case 'ch9': {
+      const main = ['us9', 'hanil9', 'yukata9', 'baby9'].map(byTag);
+      const one = main.every((o) => !!o && o.status === 'shipped' && o.onTime === true);
+      const two = one && s.cash >= 4500;
+      const three = two && s.stats.overtimeDays === 0 && (s.stats.flights ?? 0) <= 2 && s.orders.every((o) => o.status === 'shipped' && o.onTime === true);
+      return [one, two, three];
+    }
     case 'ch8': {
       const us = s.orders.filter((o) => o.buyer === 'atlantic');
       const one = us.length >= 2 && us.every((o) => o.status === 'shipped' && o.onTime === true);

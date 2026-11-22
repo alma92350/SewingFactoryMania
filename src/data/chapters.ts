@@ -84,7 +84,7 @@ export interface ChapterDef {
   newSystems: SystemId[];
   stations: MachineType[];
   /** Optional: several lines (names and machines). When set, `stations` is ignored. */
-  lines?: { name: string; stations: MachineType[] }[];
+  lines?: { name: string; stations: MachineType[]; site?: string }[];
   /** Worker id → starting station (null = bench). */
   crew: Record<string, number | null>;
   cash: number;
@@ -976,6 +976,127 @@ export const CHAPTERS: ChapterDef[] = [
       options: [
         { id: 'afternoon', label: 'Close at noon: everyone to Má’s party', effect: 'Lose the afternoon; morale +10%' },
         { id: 'dinner', label: 'A dinner after work, for everyone', effect: 'Costs $120; morale +5%' },
+      ],
+    },
+  },
+  {
+    id: 'ch9',
+    index: 9,
+    name: 'Two Cities',
+    year: 2005,
+    place: 'Saigon and Hà Nội',
+    intro:
+      'September 2005. Land in the zone is dear, Hà Nội is growing, and the northern workers are good. You opened a second factory near Hà Nội: two lines there, two lines in Saigon, one of you. You can only change things where you stand. A flight takes three hours.',
+    days: 7,
+    rainDays: [],
+    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting', 'power', 'leaders', 'morale', 'training', 'planning', 'merchandising', 'macro', 'diversify', 'quota', 'compliance', 'sites'],
+    newSystems: ['sites'],
+    stations: [],
+    lines: [
+      { name: 'Line A', site: 'saigon', stations: [C, L, L, L, L, L, O, O, O, B, Q] },
+      { name: 'Line B', site: 'saigon', stations: [L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+      { name: 'Line C', site: 'hanoi', stations: [L, L, L, L, L, L, L, O, O, B, Q] },
+      { name: 'Line D', site: 'hanoi', stations: [L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+    ],
+    crew: { tam: 0, huong: 1, bich: 2, linh: 3, lan: 4, thao: 5, hoa: 6, ngan: 7, thu: 10, dung: 11, giang: 12, hanh: 13, phuong: 14, van: 15, trang: 16, cuc: 17, kim: 18, nhung: 23, hong: 47, quang: null, hai: null, son: null, hien: null, tuan: null },
+    crewLeads: { quang: 1, hai: 3 },
+    extraCrew: 30,
+    cash: 3000,
+    rent: 60,
+    applicants: 4,
+    starText: ['Ship the four main orders on time', '…and finish with $4,500 or more', '…with no overtime and at most two flights'],
+    applicantRoles: ['operator', 'mechanic', 'qc', 'cutter', 'electrician', 'leader', 'planner', 'merchandiser'],
+    script: [
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'us9',
+          buyer: 'atlantic',
+          product: 'polo',
+          text: 'Polos again, CMT. You passed the audit, so here is a bigger one. Mr. Brooks.',
+          optional: false,
+          options: [
+            { label: 'Store lot', qty: 900, price: 11.2, dueDay: 6 },
+            { label: 'Season lot', qty: 1100, price: 11.2, dueDay: 6 },
+            { label: 'Big lot', qty: 1300, price: 11, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'hanil9',
+          buyer: 'hanil',
+          product: 'shirt',
+          text: 'Shirts, CMT. Seoul is happy again. Ms. Park.',
+          optional: false,
+          options: [
+            { label: 'Small lot', qty: 800, price: 7.8, dueDay: 5 },
+            { label: 'Usual lot', qty: 1000, price: 7.8, dueDay: 6 },
+            { label: 'Big lot', qty: 1200, price: 7.6, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'yukata9',
+          buyer: 'sakuraya',
+          product: 'yukata',
+          text: 'Yukata. We hear you have a factory in the north now. The same care, please. Watanabe.',
+          optional: false,
+          options: [
+            { label: 'Spring lot', qty: 400, price: 18, dueDay: 5 },
+            { label: 'Usual lot', qty: 500, price: 18, dueDay: 6 },
+            { label: 'Big lot', qty: 600, price: 17.5, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'baby9',
+          buyer: 'formosa',
+          product: 'baby',
+          text: 'Baby rompers, CMT. Mothers check the snaps, as always. Mrs. Lin.',
+          optional: false,
+          options: [
+            { label: 'Small run', qty: 800, price: 9, dueDay: 5 },
+            { label: 'Shop run', qty: 1000, price: 9, dueDay: 6 },
+            { label: 'Big run', qty: 1200, price: 8.8, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 3,
+        minute: 10 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'pearl9',
+          buyer: 'pearl',
+          product: 'shorts',
+          text: 'Full again, and the yuan is going up. 400 shorts, CMT. Zhou.',
+          optional: true,
+          options: [{ label: 'Overflow', qty: 400, price: 4.6, dueDay: 6 }],
+        },
+      },
+    ],
+    family: {
+      flag: 'ch9.north',
+      when: 'start',
+      title: 'Who runs Hà Nội?',
+      body: 'The northern factory needs someone you trust on the floor when you are in Saigon. Út offers to move north. A recruiter suggests Mr. Thắng, who ran a state garment factory in Nam Định.',
+      options: [
+        { id: 'ut', label: 'Út moves north', effect: 'A free leader on line C; Út misses the family' },
+        { id: 'thang', label: 'Hire Mr. Thắng', effect: 'A leader on line C at $3.50/day; better applicants in Hà Nội' },
       ],
     },
   },

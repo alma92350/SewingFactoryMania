@@ -399,6 +399,7 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
       if (d.flag === 'ch5.scissors') bacTuScissors(s, optionId);
       if (d.flag === 'ch6.ut') utReturns(s, optionId);
       if (d.flag === 'ch7.ma') masAdvice(s, optionId, events);
+      if (d.flag === 'ch9.north') northManager(s, optionId);
       if (d.flag === 'ch8.birthday') {
         if (optionId === 'afternoon' && s.power) {
           s.power.closedFrom = 12 * 60;
@@ -463,4 +464,24 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
       break;
   }
   return null;
+}
+
+/** Chapter 9: Út moves north, or Mr. Thắng is hired; either way line C gets a leader. */
+export function northManager(s: GameState, choice: string): void {
+  const line = s.lines.findIndex((l) => l.site === 'hanoi' && !l.leaderId);
+  if (line < 0) return;
+  let w = s.workers.find((x) => x.id === (choice === 'ut' ? 'ut' : 'thang'));
+  if (!w) {
+    const def = choice === 'ut' ? { ...CREW.ut!, role: 'leader' as const, wage: 0 } : CREW.thang!;
+    w = makeWorker({ ...def, familiar: [] }, s.tuning, null, s.minute);
+    s.workers.push(w);
+  }
+  w.role = 'leader';
+  if (w.station !== null) {
+    s.stations[w.station]!.workerId = null;
+    w.station = null;
+  }
+  w.site = 'hanoi';
+  s.lines[line]!.leaderId = w.id;
+  if (choice === 'thang') s.campaign['ch9.betterNorth'] = 'yes';
 }

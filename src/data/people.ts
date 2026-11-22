@@ -73,6 +73,8 @@ export const CREW: Record<string, PersonDef> = {
   nhung: { id: 'nhung', name: 'Nhung', role: 'qc', skill: sk(0.5, 0.5, 0.5, 0.88), traits: ['careful'], wage: 1.7, familiar: ['qc'], note: 'Sharp eyes, sharper tongue.' },
   hien: { id: 'hien', name: 'Hiền', role: 'planner', skill: sk(0.4, 0.4, 0.4, 0.4), traits: [], wage: 2.6, familiar: [], note: 'Keeps the production board in chalk, and in her head.' },
   tuan: { id: 'tuan', name: 'Tuấn', role: 'merchandiser', skill: sk(0.4, 0.4, 0.4, 0.4), traits: [], wage: 2.6, familiar: [], note: 'Answers faxes in Korean, Japanese and English.' },
+  hong: { id: 'hong', name: 'Hồng', role: 'qc', skill: { ...sk(0.5, 0.5, 0.5, 0.88) }, traits: ['careful'], wage: 1.5, familiar: ['qc'], note: 'Grew up in Nam Định, the old textile city.' },
+  thang: { id: 'thang', name: 'Thắng', role: 'leader', skill: sk(0.7, 0.7, 0.7, 0.6), traits: [], wage: 3.5, familiar: [], note: 'Ran a state garment factory in Nam Định for twenty years.' },
   ut: { id: 'ut', name: 'Út', role: 'operator', skill: sk(0.6, 0.6, 0.6, 0.6), traits: ['quickLearner', 'radio'], wage: 0, familiar: [], note: 'Your youngest sibling. Family: no wage.' },
 };
 

@@ -1,4 +1,5 @@
 import { walkMinutes, workerById } from './selectors';
+import { directorSite, hasSites, siteOfStation, siteOfWorker } from './sites';
 import type { Agent, GameState, SimEvent } from './types';
 
 /**
@@ -7,9 +8,11 @@ import type { Agent, GameState, SimEvent } from './types';
  */
 export function stepAgents(s: GameState, events: SimEvent[]): void {
   // mechanics notice breakdowns on their own
-  if (s.agents.some((a) => a.kind === 'mechanic' && isPresent(s, a))) {
+  for (const m of s.agents) {
+    if (m.kind !== 'mechanic' || !isPresent(s, m)) continue;
+    const site = agentSite(s, m);
     for (const st of s.stations) {
-      if (st.broken && !s.repairQueue.includes(st.index) && !s.agents.some((a) => a.target === st.index)) s.repairQueue.push(st.index);
+      if (st.broken && (!hasSites(s) || siteOfStation(s, st) === site) && !s.repairQueue.includes(st.index) && !s.agents.some((a) => a.target === st.index)) s.repairQueue.push(st.index);
     }
   }
   // mechanics first: they are faster
@@ -20,8 +23,14 @@ export function stepAgents(s: GameState, events: SimEvent[]): void {
   }
 }
 
+function agentSite(s: GameState, a: Agent): string {
+  if (a.kind === 'director') return directorSite(s);
+  const w = workerById(s, a.id);
+  return w ? siteOfWorker(s, w) : 'main';
+}
+
 function isPresent(s: GameState, a: Agent): boolean {
-  if (a.kind === 'director') return true;
+  if (a.kind === 'director') return directorSite(s) !== 'air';
   const w = workerById(s, a.id);
   return !!w && !w.absent;
 }
@@ -50,7 +59,8 @@ function stepAgent(s: GameState, a: Agent, events: SimEvent[]): void {
     return;
   }
   // take the next repair (the director only if the player asked)
-  const next = s.repairQueue.find((i) => s.stations[i]!.broken);
+  const here = hasSites(s) ? agentSite(s, a) : null;
+  const next = s.repairQueue.find((i) => s.stations[i]!.broken && (here === null || siteOfStation(s, i) === here));
   s.repairQueue = s.repairQueue.filter((i) => s.stations[i]!.broken);
   if (next !== undefined) {
     s.repairQueue = s.repairQueue.filter((i) => i !== next);
@@ -61,7 +71,7 @@ function stepAgent(s: GameState, a: Agent, events: SimEvent[]): void {
     let worst = -1;
     let wear = t.preventiveWear;
     for (const st of s.stations) {
-      if (st.broken || st.machine === 'qc' || s.agents.some((x) => x.target === st.index)) continue;
+      if (st.broken || st.machine === 'qc' || s.agents.some((x) => x.target === st.index) || (here !== null && siteOfStation(s, st) !== here)) continue;
       if (st.wear > wear) {
         wear = st.wear;
         worst = st.index;

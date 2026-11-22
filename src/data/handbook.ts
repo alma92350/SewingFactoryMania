@@ -98,6 +98,10 @@ export const TIPS: Record<string, Tip> = {
     title: 'The auditor reads everything, con.',
     body: 'Atlantic Outfitters has a <b>code of conduct</b>: overtime, fire exits, water, fans, tired people, and what your workers say when you are not in the room. The Team tab shows each rule live. Five of six must pass on day 3.',
   },
+  sites: {
+    title: 'One of you, two cities.',
+    body: 'You can only seat people, change jobs, fix machines and hire where you stand. The buttons at the top of the map switch between <b>Saigon</b> and <b>Hà Nội</b>; the Line tab books a flight (three hours, $40). Give each line a leader and each city a mechanic, and the city you are not in keeps working.',
+  },
   inspection: {
     title: 'After the inspection.',
     body: 'The defect report shows which operation, which seamstress and which cause made the defects. Learning and worn needles are the usual suspects; QC catches most of the rest.',

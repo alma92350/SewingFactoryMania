@@ -52,6 +52,7 @@ function makeApplicant(s: GameState, role: Role, name: string): Applicant {
     cutting: r2(0.4 + rand(s.rng) * 0.25),
     qc: r2(0.3 + rand(s.rng) * 0.2),
   };
+  if (s.campaign['ch9.betterNorth'] === 'yes' && s.director?.site === 'hanoi') for (const k of ['lockstitch', 'overlock', 'buttonhole', 'bartack'] as const) skill[k] = r2(Math.min(1, skill[k] + 0.1));
   if (role === 'qc') skill.qc = r2(0.8 + rand(s.rng) * 0.15);
   if (role === 'cutter') skill.cutting = r2(0.85 + rand(s.rng) * 0.12);
   if (role !== 'operator') skill.qc = role === 'qc' ? skill.qc : 0.3;
@@ -69,3 +70,4 @@ function makeApplicant(s: GameState, role: Role, name: string): Applicant {
     note: role === 'operator' ? pick(s.rng, APPLICANT_NOTES) : ROLE_NOTES[role],
   };
 }
+

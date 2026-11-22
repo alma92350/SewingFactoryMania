@@ -3,6 +3,7 @@ import { buyFabric, rejectRolls } from './sourcing';
 import { buyWelfare } from './morale';
 import { layoffBlocked, prospect } from './macro';
 import { buyQuota } from './us';
+import { directorSite, hasSites, HANOI_WAGE, presentAt, SITE_NAME, siteOfStation, siteOfWorker, travel } from './sites';
 import { makeWorker } from './state';
 import { endDay } from './sim';
 import { has, opDef, orderById, posOf, walkMinutes, workerById } from './selectors';
@@ -27,7 +28,8 @@ export type Command =
   | { type: 'mentor'; junior: string; senior: string | null }
   | { type: 'policy'; quote: number; extras: boolean }
   | { type: 'prospect'; market: string }
-  | { type: 'quota'; orderId: number };
+  | { type: 'quota'; orderId: number }
+  | { type: 'travel'; site: string };
 
 export type CommandResult = { ok: true; events: SimEvent[] } | { ok: false; error: string };
 
@@ -62,6 +64,10 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
       return hire(s, c.applicant);
     case 'letGo':
       return letGo(s, c.workerId);
+    case 'travel': {
+      const err = travel(s, c.site);
+      return err ? no(err) : ok();
+    }
     case 'quota': {
       const err = buyQuota(s, c.orderId);
       return err ? no(err) : ok();
@@ -146,6 +152,22 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
   }
 }
 
+/** Line leaders act on their own lines even when the director is in the other city. */
+let byLeader = false;
+export function asLeader<T>(f: () => T): T {
+  byLeader = true;
+  try {
+    return f();
+  } finally {
+    byLeader = false;
+  }
+}
+
+function awayText(s: GameState): string {
+  const here = directorSite(s);
+  return here === 'air' ? 'You are on a plane.' : `You are in ${SITE_NAME[here] ?? here}: fly there first.`;
+}
+
 function assign(s: GameState, workerId: string, station: number | null): CommandResult {
   const w = workerById(s, workerId);
   if (!w) return no('Unknown worker.');
@@ -153,6 +175,11 @@ function assign(s: GameState, workerId: string, station: number | null): Command
   if (w.role === 'mechanic' || w.role === 'electrician' || w.role === 'leader') return no(`A ${w.role === 'leader' ? 'line leader' : w.role} does not sew.`);
   if (station === w.station) return no(`${w.name} is already there.`);
   if (station !== null && !s.stations[station]) return no('Unknown station.');
+  if (hasSites(s)) {
+    const home = siteOfWorker(s, w);
+    if (station !== null && siteOfStation(s, station) !== home) return no(`${w.name} works in ${SITE_NAME[home] ?? home}.`);
+    if (!byLeader && !presentAt(s, home)) return no(awayText(s));
+  }
 
   const oldStation = w.station;
   const fromPos = posOf(s, oldStation);
@@ -181,6 +208,7 @@ function setOp(s: GameState, station: number, opId: string | null): CommandResul
   const st = s.stations[station];
   if (!st) return no('Unknown station.');
   if (st.machine === 'qc') return no('The QC table only does QC.');
+  if (!byLeader && !presentAt(s, siteOfStation(s, st))) return no(awayText(s));
   if (opId !== null) {
     const op = opDef(opId);
     if (!op) return no('Unknown operation.');
@@ -203,6 +231,7 @@ function fix(s: GameState, station: number): CommandResult {
   const st = s.stations[station];
   if (!st) return no('Unknown station.');
   if (!st.broken) return no('That machine is running fine.');
+  if (!presentAt(s, siteOfStation(s, st)) && !s.agents.some((a) => a.kind === 'mechanic')) return no(awayText(s));
   if (s.repairQueue.includes(station) || s.agents.some((a) => a.target === station)) return no('Someone is already on the way.');
   s.repairQueue.push(station);
   return ok();
@@ -212,8 +241,13 @@ function hire(s: GameState, id: string): CommandResult {
   if (!has(s, 'hiring')) return no('No hiring in this chapter.');
   const a = s.applicants.find((x) => x.id === id);
   if (!a) return no('That applicant has left.');
+  if (hasSites(s) && directorSite(s) === 'air') return no('You are on a plane.');
   s.applicants = s.applicants.filter((x) => x.id !== id);
   const w = makeWorker({ ...a, id: `w${s.nextId++}`, familiar: [] }, s.tuning, null, s.minute);
+  if (hasSites(s)) {
+    w.site = directorSite(s);
+    if (w.site === 'hanoi') w.wage = Math.round(w.wage * HANOI_WAGE * 100) / 100;
+  }
   w.arriveAt = s.minute + 2;
   s.workers.push(w);
   if (a.role === 'mechanic') s.agents.push({ id: w.id, kind: 'mechanic', target: null, task: null, pos: -1, leftAt: s.minute, arriveAt: s.minute, until: 0 });

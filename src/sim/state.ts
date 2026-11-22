@@ -114,6 +114,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     policy: { quote: 1, extras: true },
     prospects: [],
     macro: null,
+    director: ch.systems.includes('sites') ? { site: lineDefs[0]?.site ?? 'main', flightUntil: 0 } : null,
     quota: ch.systems.includes('quota') ? { price: 1, history: [] } : null,
     audit: ch.systems.includes('compliance') ? { visits: 0, score: 0, passed: null, firstPassed: null } : null,
     closedToday: false,
@@ -121,7 +122,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     agents: [{ id: 'director', kind: 'director', target: null, task: null, pos: -1, leftAt: 0, arriveAt: 0, until: 0 }],
     repairQueue: [],
     orders: [],
-    lines: lineDefs.map((l) => ({ name: l.name, activeOrderId: null, leaderId: null })),
+    lines: lineDefs.map((l) => ({ name: l.name, activeOrderId: null, leaderId: null, ...(l.site ? { site: l.site } : {}) })),
     nextId: 1,
     cash: Math.round(cash),
     ledger: emptyLedger(),
@@ -142,7 +143,12 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
   if (ch.systems.includes('hiring')) s.applicants = generateApplicants(s, true);
   planDay(s);
   if (ch.modifier?.id === 'power' && s.power) s.power.cuts = [{ start: 10 * 60, end: 11 * 60 + 40 }];
-  for (const [id, line] of Object.entries(ch.crewLeads ?? {})) if (s.lines[line]) s.lines[line]!.leaderId = id;
+  for (const [id, line] of Object.entries(ch.crewLeads ?? {})) {
+    if (!s.lines[line]) continue;
+    s.lines[line]!.leaderId = id;
+    const w = s.workers.find((x) => x.id === id);
+    if (w && s.lines[line]!.site) w.site = s.lines[line]!.site;
+  }
   if (ch.extraCrew) {
     // veterans fill empty sewing machines, line by line in turn
     const free = s.stations.filter((st) => st.workerId === null && st.machine !== 'qc' && st.machine !== 'cutting');
@@ -162,6 +168,15 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
   if (mods.includes('breakdowns')) s.mods.breakdowns *= 2;
   if (mods.includes('learning')) for (const w of s.workers) for (const id of Object.keys(w.learn)) w.learn[id] = 0.4;
   if (mods.includes('power') && s.power) s.power.cuts = [{ start: 10 * 60, end: 11 * 60 + 40 }];
+  // two cities: everyone belongs to the city of their machine (bench workers to the first city);
+  // northern wages are lower
+  if (s.director) {
+    for (const w of s.workers) {
+      if (w.station !== null) w.site = s.lines[s.stations[w.station]!.line]!.site;
+      w.site ??= s.lines[0]!.site;
+      if (w.site === 'hanoi' && w.wage > 0) w.wage = Math.round(w.wage * 0.85 * 100) / 100;
+    }
+  }
   // the 2007 era: everyone earns more (prices are higher too)
   if (ch.wageMul && ch.wageMul !== 1) for (const w of s.workers) w.wage = Math.round(w.wage * ch.wageMul * 100) / 100;
   if (ch.index > 2 && ch.index < 100 && campaign['ch2.ut'] === 'join') s.workers.push(makeWorker(CREW.ut!, tuning, null, tuning.shiftStart));

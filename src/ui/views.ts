@@ -34,6 +34,7 @@ import { SUPPLIERS } from '../data/suppliers';
 import { MARKETS } from '../data/markets';
 import { layoffBlocked, newCustomers } from '../sim/macro';
 import { AUDIT_CHECKS, auditChecks, quotaCost } from '../sim/us';
+import { FLIGHT_COST, SITE_NAME, sites } from '../sim/sites';
 import { cosmeticsHtml, epilogue } from './scrapbook';
 import { metresInTransit, metresPerBundle, rollsSummary, rollsToBuy } from '../sim/sourcing';
 
@@ -81,10 +82,14 @@ export function topbarHtml(s: GameState, speed: number, sound: boolean): string 
     : '';
   const cash = has(s, 'orders') ? `<div class="cash ${s.cash < 0 ? 'bad' : ''}" aria-label="Cash">${money(s.cash)}</div>` : '';
   const ot = s.overtime ? '<span class="ot">overtime</span>' : '';
+  const where = s.director
+    ? `<div class="where" aria-label="Where you are">${s.director.flightUntil > 0 ? `✈ <span>${esc(SITE_NAME[s.director.site] ?? s.director.site)}</span> ${clockLabel(s.director.flightUntil)}` : `📍 <span>${esc(SITE_NAME[s.director.site] ?? s.director.site)}</span>`}</div>`
+    : '';
   return (
     `<button class="menu" data-action="title" aria-label="Menu">☰</button>` +
     `<div class="clock" aria-label="Time"><small>${dayLabel(s.day)}</small> ${clockLabel(Math.min(s.minute, s.overtime ? s.tuning.overtimeEnd : s.tuning.shiftEnd))}${ot}</div>` +
     cash +
+    where +
     goal +
     power +
     `<div class="speeds" role="group" aria-label="Speed">` +
@@ -152,6 +157,17 @@ export function lineTabHtml(s: GameState, view: ViewState): string {
     );
   }
   const o = activeOrder(s);
+  if (s.director) {
+    const d = s.director;
+    const flying = d.flightUntil > 0;
+    const others = sites(s).filter((x) => x !== d.site);
+    const away = flying ? `You are flying to ${SITE_NAME[d.site] ?? d.site}; you land at ${clockLabel(d.flightUntil)}.` : `You are in ${SITE_NAME[d.site] ?? d.site}. In the other city only the line leaders and the mechanics can act.`;
+    const fly = flying
+      ? ''
+      : others.map((x) => `<button data-action="travel" data-arg="${x}" ${s.phase !== 'shift' || s.cash < FLIGHT_COST ? 'disabled' : ''}>✈ Fly to ${esc(SITE_NAME[x] ?? x)} · $${FLIGHT_COST} · 3 h</button>`).join('');
+    const led = s.lines.map((l) => `${esc(l.name)} (${esc(SITE_NAME[l.site ?? ''] ?? '')}): ${l.leaderId ? `led by ${esc(workerById(s, l.leaderId)?.name ?? '')}` : 'no leader'}`).join(' · ');
+    return `<div class="row"><b>${esc(away)}</b></div><div class="row buttons">${fly}</div><div class="row muted small">${led} · flights ${s.stats.flights ?? 0} · breakdowns today ${s.stats.dayBreakdowns}</div>`;
+  }
   if (s.lines.length > 1) {
     const led = s.lines.map((l) => `${esc(l.name)}: ${l.leaderId ? `led by ${esc(workerById(s, l.leaderId)?.name ?? '')}` : 'no leader'}`).join(' · ');
     return `<div class="row"><b>Tap a seamstress, then a machine. Two lines: hire line leaders so they balance for you.</b></div><div class="row muted small">${led} · breakdowns today ${s.stats.dayBreakdowns}</div>`;

@@ -5,6 +5,12 @@ import { buyMissingFabric } from './office';
 import { bonusCost } from './morale';
 import { activeOrder, dailyWages, has, lineRate, orderById, projectedFinishDay, workMinutesPerDay } from './selectors';
 import type { GameState } from './types';
+import { siteOfStation, siteOfWorker } from './sites';
+
+function agentHome(s: GameState, id: string): string {
+  const w = s.workers.find((x) => x.id === id);
+  return w ? siteOfWorker(s, w) : 'main';
+}
 
 export interface BotConfig {
   /** Option picked on quote faxes (index into the options), clamped. */
@@ -26,6 +32,7 @@ export interface BotConfig {
  * It never does clever swaps or reads defect causes: ★★★ should need a human.
  */
 export function makeBot(cfg: BotConfig = {}) {
+  let lastFlightDay = -1;
   return (s: GameState): number => {
     let actions = 0;
     const act = (r: { ok: boolean }) => (r.ok ? (actions += 1) : 0);
@@ -59,6 +66,18 @@ export function makeBot(cfg: BotConfig = {}) {
       for (const item of ['water', 'canteen', 'fans'] as const) {
         if (!s.welfare[item] && s.cash > s.tuning.welfareCost[item] + dailyWages(s) * 3) act(applyCommand(s, { type: 'welfare', item }));
       }
+    }
+    // two cities: fly where you are needed (at most once a day)
+    if (s.director && s.director.flightUntil === 0 && s.minute % 30 === 0 && lastFlightDay !== s.day && s.minute <= 13 * 60) {
+      const need = (site: string) =>
+        s.stations.some((st) => siteOfStation(s, st) === site && (
+          (st.broken && !s.agents.some((a) => a.kind === 'mechanic' && agentHome(s, a.id) === site)) ||
+          (st.machine === 'qc' && st.workerId === null) ||
+          (st.opId !== null && st.machine !== 'cutting' && !s.stations.some((x) => x.line === st.line && x.opId === st.opId && x.workerId !== null) && !(s.lines[st.line]!.leaderId && leaderPresent(s, st.line)))
+        ));
+      const here = s.director.site;
+      const other = s.lines.map((l) => l.site ?? 'main').find((x) => x !== here);
+      if (other && !need(here) && need(other) && act(applyCommand(s, { type: 'travel', site: other }))) lastFlightDay = s.day;
     }
     // American quota: buy when cheap, or the day before the vessel at the latest
     if (has(s, 'quota') && s.quota && s.minute % 30 === 0) {

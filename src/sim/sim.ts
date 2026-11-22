@@ -10,6 +10,7 @@ import { checkOrders, lineCanMake, pushDecision, pushFamily, pushFamily2, shipOr
 import { sandboxFaxOptions } from '../data/generated';
 import { macroShock, prospectFaxes } from './macro';
 import { nightlyQuota, runAudit } from './us';
+import { SITE_NAME, stepTravel } from './sites';
 import { chance } from '../core/rng';
 import { generateApplicants } from './people';
 import { stepStation } from './production';
@@ -45,6 +46,7 @@ export function step(s: GameState): SimEvent[] {
   }
   if (s.minute === t.lunchEnd) events.push({ kind: 'lunch', start: false });
 
+  if (stepTravel(s)) events.push({ kind: 'note', text: `You landed in ${SITE_NAME[s.director!.site] ?? s.director!.site}.` });
   stepPower(s, events);
   if (s.decisions.length > 0) return events;
   stepAgents(s, events);
@@ -222,6 +224,7 @@ export function endDay(s: GameState): SimEvent[] {
   }
   s.day += 1;
   s.minute = s.tuning.shiftStart;
+  if (s.director) s.director.flightUntil = 0; // an evening flight has landed by morning
   s.overtime = false;
   s.closedToday = false;
   if (s.tet) s.tet.volunteers = false;

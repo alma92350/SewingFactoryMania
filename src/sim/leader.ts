@@ -1,4 +1,5 @@
-import { applyCommand } from './commands';
+import { applyCommand, asLeader } from './commands';
+import { siteOfStation, siteOfWorker } from './sites';
 import { bottleneck, has, opCapacities, opDef, stationRate, workerById } from './selectors';
 import type { GameState } from './types';
 
@@ -18,10 +19,11 @@ export function leaderPresent(s: GameState, line: number): boolean {
 export function seatBench(s: GameState, act: Act, line: number | null): void {
   for (const w of s.workers) {
     if (w.station !== null || w.absent || w.arriveAt > s.minute) continue;
-    if (w.role === 'mechanic' || w.role === 'leader' || w.role === 'electrician') continue;
+    if (w.role === 'mechanic' || w.role === 'leader' || w.role === 'electrician' || w.role === 'planner' || w.role === 'merchandiser') continue;
+    const home = siteOfWorker(s, w);
     const special = w.role === 'qc' ? 'qc' : w.role === 'cutter' ? 'cutting' : null;
     if (special) {
-      const st = s.stations.find((x) => x.machine === special && x.workerId === null && (line === null || x.line === line || special === 'cutting'));
+      const st = s.stations.find((x) => x.machine === special && x.workerId === null && siteOfStation(s, x) === home && (line === null || x.line === line || special === 'cutting'));
       if (st) act(applyCommand(s, { type: 'assign', workerId: w.id, station: st.index }));
       continue;
     }
@@ -29,7 +31,7 @@ export function seatBench(s: GameState, act: Act, line: number | null): void {
     const uncovered = (st: GameState['stations'][number]) =>
       !s.stations.some((x) => x.line === st.line && x.opId === st.opId && x.workerId !== null) ? 1 : 0;
     const empty = s.stations
-      .filter((st) => st.workerId === null && st.opId !== null && st.machine !== 'qc' && st.machine !== 'cutting' && (line === null || st.line === line))
+      .filter((st) => st.workerId === null && st.opId !== null && st.machine !== 'qc' && st.machine !== 'cutting' && siteOfStation(s, st) === home && (line === null || st.line === line))
       .sort((a, b) => uncovered(b) - uncovered(a) || b.pile.length - a.pile.length)[0];
     if (empty) act(applyCommand(s, { type: 'assign', workerId: w.id, station: empty.index }));
   }
@@ -78,10 +80,12 @@ export function stepLeaders(s: GameState): void {
     if (r.ok) s.stats.leaderMoves += 1;
     return r.ok ? 1 : 0;
   };
-  s.lines.forEach((l, line) => {
-    if (!l.leaderId || !leaderPresent(s, line)) return;
-    seatBench(s, act, line);
-    coverEmptySteps(s, act, line);
-    if (s.minute % 60 === 0) rebalance(s, act, line);
-  });
+  asLeader(() =>
+    s.lines.forEach((l, line) => {
+      if (!l.leaderId || !leaderPresent(s, line)) return;
+      seatBench(s, act, line);
+      coverEmptySteps(s, act, line);
+      if (s.minute % 60 === 0) rebalance(s, act, line);
+    }),
+  );
 }
