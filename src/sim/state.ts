@@ -1,51 +1,123 @@
 import { createRng } from '../core/rng';
-import { OPERATIONS, STATIONS, TUNING, WORKERS, type Tuning } from '../data/prototype';
+import { CHAPTER_BY_ID } from '../data/chapters';
+import { DIFFICULTIES, type DifficultyId } from '../data/difficulty';
+import { CREW, type PersonDef } from '../data/people';
+import { ALL_OPS } from '../data/products';
+import { TUNING, type Tuning } from '../data/tuning';
+import { generateApplicants } from './people';
+import { createOrder, activateOrder, pushFamily } from './orders';
 import type { GameState, Station, Worker } from './types';
 
-export function createState(seed: number, overrides: Partial<Tuning> = {}): GameState {
-  const tuning: Tuning = { ...TUNING, ...overrides };
-  const stations: Station[] = STATIONS.map((s, index) => ({
+export interface ChapterOptions {
+  difficulty?: DifficultyId;
+  campaign?: Record<string, string>;
+  tuning?: Partial<Tuning>;
+}
+
+export function emptyLedger() {
+  return { revenue: 0, wages: 0, rent: 0, electricity: 0, freight: 0, penalties: 0 };
+}
+
+export function makeWorker(p: PersonDef | (Omit<PersonDef, 'familiar'> & { familiar?: string[] }), tuning: Tuning, station: number | null, minute: number): Worker {
+  const learn: Record<string, number> = {};
+  for (const id of Object.keys(ALL_OPS)) learn[id] = tuning.learnStart;
+  for (const id of p.familiar ?? []) learn[id] = tuning.learnFamiliar;
+  return {
+    id: p.id,
+    name: p.name,
+    role: p.role,
+    skill: { ...p.skill },
+    traits: [...p.traits],
+    wage: p.wage,
+    station,
+    arriveAt: minute,
+    from: station,
+    leftAt: minute,
+    learn,
+    fatigue: 0,
+    absent: false,
+    note: p.note,
+  };
+}
+
+export function createChapter(chapterId: string, seed: number, opts: ChapterOptions = {}): GameState {
+  const ch = CHAPTER_BY_ID[chapterId];
+  if (!ch) throw new Error(`unknown chapter ${chapterId}`);
+  const tuning: Tuning = { ...TUNING, ...opts.tuning };
+  const diff = DIFFICULTIES[opts.difficulty ?? 'seamstress'];
+  const campaign = { ...opts.campaign };
+
+  // family choices carried from earlier chapters (PRD §11.1): every choice changes the game
+  let breakdowns = diff.breakdowns;
+  let cash = ch.cash * diff.cash;
+  if (ch.index > 0 && campaign['ch0.machines'] === 'keep') {
+    cash += 40;
+    breakdowns *= 1.2;
+  } else if (ch.index > 0 && campaign['ch0.machines'] === 'sell') {
+    cash -= 40;
+    breakdowns *= 0.7;
+  }
+
+  const stations: Station[] = ch.stations.map((machine, index) => ({
     index,
-    machine: s.machine,
-    opId: s.opId,
+    machine,
+    opId: machine === 'qc' ? 'qc' : null,
     workerId: null,
     broken: false,
     wear: 0,
+    serviceUntil: 0,
     current: null,
     pile: [],
     output: 0,
   }));
-  const workers: Worker[] = WORKERS.map((w) => {
-    const learn: Record<string, number> = {};
-    for (const op of OPERATIONS) learn[op.id] = op.id === w.familiar ? tuning.learnFamiliar : tuning.learnStart;
-    if (w.start !== null) stations[w.start]!.workerId = w.id;
-    return {
-      id: w.id,
-      name: w.name,
-      skill: { ...w.skill },
-      station: w.start,
-      arriveAt: tuning.shiftStart,
-      from: w.start,
-      leftAt: tuning.shiftStart,
-      learn,
-      note: w.note,
-    };
-  });
-  return {
-    version: 1,
+
+  const workers: Worker[] = [];
+  for (const [id, seat] of Object.entries(ch.crew)) {
+    const w = makeWorker(CREW[id]!, tuning, seat, tuning.shiftStart);
+    if (seat !== null) stations[seat]!.workerId = id;
+    workers.push(w);
+  }
+
+  const s: GameState = {
+    version: 2,
     seed,
     rng: createRng(seed),
-    minute: tuning.shiftStart,
+    chapterId: ch.id,
+    difficulty: diff.id,
+    campaign,
+    systems: [...ch.systems],
     tuning,
+    mods: { breakdowns, defects: diff.defects, inspectionShift: diff.inspectionShift },
+    day: 1,
+    minute: tuning.shiftStart,
+    overtime: false,
+    phase: 'shift',
     stations,
     workers,
-    director: { target: null, pos: -1, leftAt: 0, arriveAt: 0, fixUntil: 0, queue: [] },
-    cutStack: tuning.cutBundles,
-    nextBundleId: 1,
-    finished: 0,
-    breakdowns: 0,
-    ended: false,
+    agents: [{ id: 'director', kind: 'director', target: null, task: null, pos: -1, leftAt: 0, arriveAt: 0, until: 0 }],
+    repairQueue: [],
+    orders: [],
+    activeOrderId: null,
+    nextId: 1,
+    cash: Math.round(cash),
+    ledger: emptyLedger(),
+    history: [],
+    decisions: [],
+    applicants: [],
+    negativeDays: 0,
+    firedEvents: [],
+    stats: { breakdowns: 0, dayBreakdowns: 0, dayPieces: 0, quietMinutes: 0, dayMinutes: 0, overtimeDays: 0 },
+    failed: null,
   };
+
+  if (ch.startOrder) {
+    const o = createOrder(s, { ...ch.startOrder });
+    // Ch0 keeps the Phase 0 seating: the spare machine has no job until the player gives it one
+    activateOrder(s, o, ch.id === 'ch0' ? [0, 1, 2, null, 3, 4, 5] : undefined);
+  }
+  if (ch.systems.includes('hiring')) s.applicants = generateApplicants(s, true);
+  if (ch.family && ch.family.when === 'start') pushFamily(s);
+  return s;
 }
 
 /** Deep copy through JSON: the state is plain data by contract. */
