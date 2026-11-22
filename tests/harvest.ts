@@ -11,6 +11,8 @@ import { endDay, step } from '../src/sim/sim';
 import { createChapter } from '../src/sim/state';
 import type { GameState } from '../src/sim/types';
 import { segmentsOfHtml } from '../src/ui/i18n';
+import { prepareDaily, shareLine } from '../src/sim/meta';
+import { ensureChapter } from '../src/data/generated';
 import {
   bookTabHtml,
   chapterEndHtml,
@@ -49,6 +51,14 @@ export function harvest(): { html: string[]; canvas: string[] } {
   const renderer = new Renderer(stubCanvas(canvas));
   const progress = { stars: { ch0: 3, ch1: 2, ch2: 1, ch3: 1 }, campaign: {}, difficulty: 'seamstress' as const, sound: true, seenTips: Object.keys(TIPS) };
   add(titleHtml(progress, true, 'The First Fax · Mon · day 2'));
+  const daily = prepareDaily(20261201);
+  add(titleHtml({ ...progress, achievements: ['doors'], sandboxBest: 12, dailyBest: { [daily.id]: 300 }, log: true }, true, 'The First Fax · Mon · day 2', false, {
+    dailyId: daily.id,
+    dailyName: daily.name,
+    dailyPlace: `${daily.place} · ★ ${daily.scoreStars![0]} · ★★ ${daily.scoreStars![1]} · ★★★ ${daily.scoreStars![2]}`,
+    dailyBest: 300,
+    d1: { days: 3, returned: 2 },
+  }));
   // Bác Tư's tips and the handbook tips use whole-text Vietnamese (VI_TIPS), tested separately
   add(bookTabHtml([]));
 
@@ -67,17 +77,23 @@ export function harvest(): { html: string[]; canvas: string[] } {
       [390, 600],
       [1280, 560],
     ] as const) {
-      renderer.layout = computeLayout(wd, ht, counts);
-      for (const o of ['none', 'bottleneck', 'quality'] as Overlay[]) renderer.draw(s, { selectedWorker: null, selectedStation: null }, 0, 0, o);
+      for (let first = 0; first < s.lines.length; first += 2) {
+        renderer.setVisible(s, s.lines.map((_, i) => i).filter((i) => i >= first && i < first + 2));
+        renderer.relayout(s, wd, ht);
+        for (const o of ['none', 'bottleneck', 'quality'] as Overlay[]) renderer.draw(s, { selectedWorker: null, selectedStation: null }, 0, 0, o);
+      }
+      void counts;
     }
   };
 
-  for (const ch of CHAPTERS) {
+  // generated chapters: today's daily and a sandbox
+  const extra = [prepareDaily(20261201), prepareDaily(20261202), ensureChapter('sandbox-2-4')!];
+  for (const ch of [...CHAPTERS, ...extra]) {
     add(introHtml(ch.id));
     for (const family of [undefined, 'second']) {
       const s = createChapter(ch.id, 7);
       const bot = makeBot(family && ch.family ? { family: { [ch.family.flag]: ch.family.options[1]!.id } } : {});
-      for (let i = 0; i < 40000 && s.phase !== 'done'; i++) {
+      for (let i = 0; i < (ch.generator ? 12000 : 40000) && s.phase !== 'done'; i++) {
         for (const d of s.decisions) add(decisionHtml(s, d));
         bot(s);
         if (s.phase === 'report') {
@@ -90,7 +106,7 @@ export function harvest(): { html: string[]; canvas: string[] } {
         step(s);
       }
       for (const d of s.decisions) add(decisionHtml(s, d));
-      add(chapterEndHtml(s, true));
+      add(chapterEndHtml(s, true, ['doors', 'sharp'], ch.scoreStars ? shareLine(s) : ''));
     }
   }
   return { html, canvas };

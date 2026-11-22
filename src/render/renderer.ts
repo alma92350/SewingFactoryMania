@@ -118,20 +118,46 @@ export class Renderer {
     this.layout = computeLayout(1, 1, [1]);
   }
 
-  resize(lines: number[]): void {
+  private visible: number[] = [0];
+  private size = { w: 1, h: 1 };
+
+  /** Measure the canvas, then lay out the visible lines (all of them when there are one or two). */
+  resize(s: GameState, visible?: number[]): void {
     const r = this.canvas.getBoundingClientRect();
     this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.canvas.width = Math.max(1, Math.round(r.width * this.dpr));
     this.canvas.height = Math.max(1, Math.round(r.height * this.dpr));
-    this.layout = computeLayout(Math.max(1, r.width), Math.max(1, r.height), lines);
+    this.size = { w: Math.max(1, r.width), h: Math.max(1, r.height) };
+    if (visible) this.visible = visible;
+    this.relayout(s);
+  }
+
+  /** Choose which lines are on screen (3+ lines: one pair at a time). */
+  setVisible(s: GameState, visible: number[]): void {
+    this.visible = visible;
+    this.relayout(s);
+  }
+
+  relayout(s: GameState, w = this.size.w, h = this.size.h): void {
+    const vis = this.visible.filter((l) => l < s.lines.length);
+    if (vis.length === 0) vis.push(0);
+    this.layout = computeLayout(w, h, vis.map((l) => s.stations.filter((st) => st.line === l).length));
+    this.layout.lineIds = vis;
+    const shown = vis.flatMap((l) => s.stations.filter((st) => st.line === l));
+    shown.forEach((st, k) => (this.layout.byIndex[st.index] = this.layout.stations[k]));
+    if (vis.length === 1 && s.lines.length > 1) {
+      // a single visible line out of several still gets its label band
+      this.layout.lineRects = [];
+    }
   }
 
   addFlight(s: GameState, from: number, to: number | null, now: number): void {
     if (einkOn) return;
     const l = this.layout;
-    const a = l.stations[from]?.table;
+    const a = l.byIndex[from]?.table;
     if (!a) return;
-    const dest = to === null ? l.done : l.stations[to]!.pile;
+    const dest = to === null ? l.done : l.byIndex[to]?.pile;
+    if (!dest) return;
     const p = PRODUCTS[activeOrder(s, s.stations[from]?.line ?? 0)?.product ?? 'shorts']!;
     this.flights.push({ from: { x: a.x + a.w / 2, y: a.y + a.h / 2 }, to: { x: dest.x + dest.w / 2, y: dest.y + dest.h / 2 }, t0: now, fabric: p.fabric, tie: p.tie });
     if (this.flights.length > 40) this.flights.shift();
@@ -139,7 +165,10 @@ export class Renderer {
 
   /** Workers drawn on the floor (mechanics are drawn as agents; absent workers are at home). */
   private floorWorkers(s: GameState): Worker[] {
-    return s.workers.filter((w) => w.role !== 'mechanic' && w.role !== 'leader' && w.role !== 'electrician' && !w.absent);
+    const onScreen = (st: number | null) => st === null || !!this.layout.byIndex[st];
+    return s.workers.filter(
+      (w) => w.role !== 'mechanic' && w.role !== 'leader' && w.role !== 'electrician' && w.role !== 'planner' && w.role !== 'merchandiser' && !w.absent && onScreen(w.station),
+    );
   }
 
   hitTest(s: GameState, x: number, y: number, frac: number): Hit {
@@ -148,7 +177,10 @@ export class Renderer {
       const p = this.workerPos(s, w, frac);
       if (Math.hypot(p.x - x, p.y - y) <= l.radius * 1.35) return { kind: 'worker', id: w.id };
     }
-    for (let i = 0; i < l.stations.length; i++) if (contains(l.stations[i]!.cell, x, y)) return { kind: 'station', index: i };
+    for (const st of s.stations) {
+      const cell = l.byIndex[st.index];
+      if (cell && contains(cell.cell, x, y)) return { kind: 'station', index: st.index };
+    }
     if (contains(l.bench, x, y)) return { kind: 'bench' };
     return null;
   }
@@ -157,7 +189,8 @@ export class Renderer {
     const list = this.floorWorkers(s);
     const benchers = list.filter((x) => x.station === null);
     const at = (st: number | null) => {
-      if (st !== null) return this.layout.stations[st]!.seat;
+      const seat = st !== null ? this.layout.byIndex[st]?.seat : undefined;
+      if (seat) return seat;
       const i = Math.max(0, benchers.indexOf(w));
       return benchSlot(this.layout, i, Math.max(benchers.length, 1));
     };
@@ -174,9 +207,10 @@ export class Renderer {
   private agentPos(s: GameState, a: Agent, k: number, frac: number): { x: number; y: number } {
     const l = this.layout;
     const spot = (p: number) => {
-      if (p < 0) return officeSpot(l, k);
-      const t = l.stations[p]!.table;
-      return l.stations[p]!.horizontal ? { x: t.x + l.radius * 0.6, y: t.y + t.h * 0.2 } : { x: t.x + t.w * 0.2, y: t.y + l.radius * 0.3 };
+      const c = p >= 0 ? l.byIndex[p] : undefined;
+      if (!c) return officeSpot(l, k);
+      const t = c.table;
+      return c.horizontal ? { x: t.x + l.radius * 0.6, y: t.y + t.h * 0.2 } : { x: t.x + t.w * 0.2, y: t.y + l.radius * 0.3 };
     };
     if (a.target === null) return spot(a.pos);
     const now = s.minute + frac;
@@ -237,7 +271,8 @@ export class Renderer {
   /** Tint and label each line when there are several. */
   private drawLines(s: GameState): void {
     const ctx = this.ctx;
-    this.layout.lineRects.forEach((r, i) => {
+    this.layout.lineRects.forEach((r, k) => {
+      const i = this.layout.lineIds[k] ?? k;
       if (!einkOn) {
         ctx.fillStyle = i % 2 ? 'rgba(47,75,124,0.06)' : 'rgba(194,24,91,0.05)';
         roundRect(ctx, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 8);
@@ -263,7 +298,8 @@ export class Renderer {
       if (w.absent) return;
       if (w.role === 'leader') {
         const line = s.lines.findIndex((l) => l.leaderId === w.id);
-        const rect = line >= 0 ? this.layout.lineRects[line] : undefined;
+        const rect = line >= 0 ? this.layout.lineRects[this.layout.lineIds.indexOf(line)] : undefined;
+        if (line >= 0 && !rect && this.layout.lineIds.length < s.lines.length) return; // leads a line that is not on screen
         const p = rect ? { x: rect.x + rect.w - r - 4, y: rect.y + 8 } : officeSpot(this.layout, 1.4);
         this.body(p.x, p.y, r, einkOn ? '#222' : '#6a1b9a', 'L', false);
       } else if (w.role === 'electrician') {
@@ -316,7 +352,9 @@ export class Renderer {
     const ctx = this.ctx;
     for (const st of s.stations) {
       if (!st.opId || st.machine === 'cutting' || st.machine === 'qc') continue;
-      const cell = this.layout.stations[st.index]!.cell;
+      const sc = this.layout.byIndex[st.index];
+      if (!sc) continue;
+      const cell = sc.cell;
       let colour = '';
       let label = '';
       if (overlay === 'bottleneck') {
@@ -471,7 +509,8 @@ export class Renderer {
 
   private drawStation(s: GameState, st: Station, view: ViewState, frac: number, timeMs: number, lunch: boolean): void {
     const ctx = this.ctx;
-    const cell = this.layout.stations[st.index]!;
+    const cell = this.layout.byIndex[st.index];
+    if (!cell) return;
     const sel = view.selectedStation === st.index;
     if (sel || view.selectedWorker) {
       ctx.strokeStyle = C.select;

@@ -54,7 +54,7 @@ export function dailyDef(dateKey: number): ChapterDef & { modifier: DailyModifie
     name: `Daily Challenge #${dailyNumber(dateKey)}`,
     year: 1990 + (dateKey % 8),
     place: `${PRODUCTS[product]!.plural} · ${modifier.name}`,
-    intro: `One shift, the same for everyone today: ${PRODUCTS[product]!.plural} on a line of ${stations.length} machines. ${modifier.text} Pack as many as you can by the end of the shift.`,
+    intro: 'One shift, the same for everyone today. Pack as many pieces as you can by the end of the shift.',
     days: 1,
     systems: modifier.id === 'power' ? ['line', 'power'] : ['line'],
     newSystems: [],

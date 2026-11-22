@@ -30,6 +30,10 @@ export interface Layout {
   office: Rect;
   /** Region of each line when there are several (for tint and labels). */
   lineRects: Rect[];
+  /** Cells by station index (only the stations on visible lines have one). */
+  byIndex: (StationCell | undefined)[];
+  /** The real line index of each visible group, in drawing order. */
+  lineIds: number[];
 }
 
 const PAD = 8;
@@ -111,7 +115,7 @@ export function computeLayout(width: number, height: number, lines: number[]): L
   }
   const t = stations[0]!.table;
   const radius = Math.max(8, Math.min(20, Math.min(t.w, t.h) * 0.3));
-  return { portrait, width, height, radius, stations, cut, done, bench, office, lineRects };
+  return { portrait, width, height, radius, stations, cut, done, bench, office, lineRects, byIndex: [], lineIds: lines.map((_, i) => i) };
 }
 
 export function benchSlot(l: Layout, i: number, n: number): { x: number; y: number } {

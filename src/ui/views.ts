@@ -26,6 +26,10 @@ import { workerColor } from '../render/renderer';
 import type { ViewState } from '../render/renderer';
 import type { Progress } from './storage';
 import { getLang } from './i18n';
+import { ACHIEVEMENTS, careerTitle } from '../sim/meta';
+import { bonusCost, welfareCount } from '../sim/morale';
+import { CHAPTER_BY_ID } from '../data/chapters';
+import { MODIFIERS } from '../data/generated';
 import { VI_TIPS } from './vi';
 import { SUPPLIERS } from '../data/suppliers';
 import { metresInTransit, metresPerBundle, rollsSummary, rollsToBuy } from '../sim/sourcing';
@@ -116,6 +120,8 @@ export function lineTabHtml(s: GameState, view: ViewState): string {
       `<div class="row small">Lockstitch ${pips(w.skill.lockstitch)} Overlock ${pips(w.skill.overlock)} Buttonhole ${pips(w.skill.buttonhole)}${has(s, 'quality') ? ` QC ${pips(w.skill.qc)}` : ''}</div>` +
       (w.traits.length ? `<div class="row small">${w.traits.map((t) => `<span class="trait" title="${TRAITS[t].text}">${TRAITS[t].name}</span>`).join('')}</div>` : '') +
       `<div class="row muted small"><span>Knows:</span> ${known || 'nothing yet: new operations start at 50% speed'}${w.fatigue > 0.3 ? ` · tired ${Math.round(w.fatigue * 100)}%` : ''}</div>` +
+      (has(s, 'morale') ? `<div class="row small">Morale ${moraleBar(w.morale)}</div>` : '') +
+      (has(s, 'training') && w.role === 'operator' ? mentorHtml(s, w) : '') +
       `<div class="row hint">Now tap a machine to move ${esc(w.name)} there.</div>` +
       `<div class="row buttons">${w.station !== null ? `<button data-action="bench" data-arg="${w.id}">Send to bench</button>` : ''}<button data-action="close">Cancel</button></div>`
     );
@@ -176,9 +182,11 @@ function orderCard(s: GameState, o: Order): string {
 export function ordersTabHtml(s: GameState): string {
   const list = s.orders.length ? [...s.orders].reverse().map((o) => orderCard(s, o)).join('') : '<p class="muted">No orders yet. The fax machine will ring.</p>';
   const premium = Math.round(dailyWages(s) * ((s.tuning.overtimeEnd - s.tuning.shiftEnd) / 540) * s.tuning.overtimeWagePremium);
-  const canOt = s.phase === 'shift' && s.minute < s.tuning.shiftEnd;
+  const capped = has(s, 'morale') && s.stats.overtimeDays >= s.tuning.overtimeCap && !s.overtime;
+  const canOt = s.phase === 'shift' && s.minute < s.tuning.shiftEnd && !capped;
   return (
     `<div class="row buttons"><button data-action="overtime" aria-pressed="${s.overtime}" ${canOt ? '' : 'disabled'}>${s.overtime ? '✓ Overtime tonight until 19:00' : 'Overtime tonight until 19:00'}</button><span class="muted small">≈ ${money(premium)} extra wages, tired workers</span></div>` +
+    (has(s, 'morale') ? `<div class="row small ${capped ? 'bad' : 'muted'}">1994 Labour Code: ${s.stats.overtimeDays}/${s.tuning.overtimeCap} overtime evenings used this month</div>` : '') +
     list
   );
 }
@@ -190,7 +198,57 @@ const ROLE_NAME: Record<string, string> = {
   cutter: 'cutter',
   electrician: 'electrician',
   leader: 'line leader',
+  planner: 'production planner',
+  merchandiser: 'merchandiser',
 };
+
+export function moraleBar(m: number): string {
+  const pct = Math.round(m * 100);
+  return `<span class="morale ${m < 0.4 ? 'low' : m < 0.65 ? 'mid' : 'high'}" title="Morale ${pct}%"><span style="width:${pct}%"></span></span><span class="small muted">${pct}%</span>`;
+}
+
+function mentorHtml(s: GameState, w: Worker): string {
+  if (w.mentor) {
+    const m = workerById(s, w.mentor);
+    return `<div class="row small">Learning from <b>${esc(m?.name ?? '')}</b> <button class="chip" data-action="mentor" data-arg="${w.id}:none">Stop mentoring</button></div>`;
+  }
+  const seniors = s.workers
+    .filter((x) => x.id !== w.id && x.role === 'operator' && !x.mentor && !x.absent && Math.max(x.skill.lockstitch, x.skill.overlock) >= 0.85)
+    .slice(0, 6);
+  if (!seniors.length) return '';
+  return `<div class="row small"><span class="muted">Mentor:</span> ${seniors
+    .map((x) => `<button class="chip" data-action="mentor" data-arg="${w.id}:${x.id}">${dot(x)}${esc(x.name)}</button>`)
+    .join('')}<span class="muted">(she teaches while sewing a little slower)</span></div>`;
+}
+
+function careHtml(s: GameState): string {
+  const items: ['fans' | 'canteen' | 'water', string, string][] = [
+    ['fans', 'Industrial fans', 'Workers tire 30% slower'],
+    ['canteen', 'A canteen', 'A real lunch: twice the rest at noon'],
+    ['water', 'Clean water and first aid', 'Fewer sick days'],
+  ];
+  const avg = s.workers.length ? s.workers.reduce((a, w) => a + w.morale, 0) / s.workers.length : 0;
+  return `<h3>Taking care of people</h3><div class="row small">Average morale ${moraleBar(avg)} · <span>${s.stats.quits} left</span> · <span>${s.stats.sickDays} sick days</span></div>
+    ${items
+      .map(([id, name, text]) =>
+        s.welfare[id]
+          ? `<div class="row small ok">✓ ${name}: ${text}</div>`
+          : `<div class="row buttons"><button data-action="welfare" data-arg="${id}">${name} · $${s.tuning.welfareCost[id]}</button><span class="muted small">${text}; morale up every night</span></div>`,
+      )
+      .join('')}
+    <p class="small muted">Happy people sew faster and cleaner, and stay. Overtime, tiredness and low pay push morale down; below a third, people leave.</p>`;
+}
+
+function officeHtml(s: GameState): string {
+  const quotes = ['Small and soon', 'Standard', 'Big and later'];
+  const merch = s.workers.some((w) => w.role === 'merchandiser');
+  const plan = s.workers.some((w) => w.role === 'planner');
+  return `<h3>The office</h3>
+    <div class="row small">${merch ? '✓ A merchandiser answers routine faxes.' : 'No merchandiser yet: you answer every fax.'} ${plan ? '✓ A planner buys fabric and fills idle lines.' : 'No planner yet: you buy the fabric.'}</div>
+    <div class="row"><span class="muted small">Quote policy:</span> ${quotes
+      .map((q, i) => `<button class="chip" data-action="policy" data-arg="${i}:${s.policy.extras}" aria-pressed="${s.policy.quote === i}">${q}</button>`)
+      .join('')}<button class="chip" data-action="policy" data-arg="${s.policy.quote}:${!s.policy.extras}" aria-pressed="${s.policy.extras}">Take optional orders</button></div>`;
+}
 
 export function fabricTabHtml(s: GameState): string {
   const orders = s.orders.filter((o) => o.status === 'active' || o.status === 'queued');
@@ -240,7 +298,7 @@ export function teamTabHtml(s: GameState): string {
           ? lead >= 0
             ? `leads ${s.lines[lead]!.name}`
             : 'no line yet'
-          : w.role === 'mechanic' || w.role === 'electrician'
+          : w.role === 'mechanic' || w.role === 'electrician' || w.role === 'planner' || w.role === 'merchandiser'
             ? ROLE_NAME[w.role]!
             : w.station === null
               ? 'bench' : s.stations[w.station]!.opId ? opDef(s.stations[w.station]!.opId!).name : 'spare machine';
@@ -248,8 +306,9 @@ export function teamTabHtml(s: GameState): string {
         w.role === 'leader' && has(s, 'leaders')
           ? s.lines.map((l, i) => `<button class="mini chip" data-action="lead" data-arg="${w.id}:${i}" aria-pressed="${lead === i}">Lead ${esc(l.name)}</button>`).join('')
           : '';
-      return `<div class="person">${dot(w)}<b>${esc(w.name)}</b> <span class="muted small">${w.role !== 'operator' && w.role !== 'leader' && w.role !== 'mechanic' && w.role !== 'electrician' ? `${ROLE_NAME[w.role]} · ` : ''}${where} · $${w.wage.toFixed(2)}/day</span>
+      return `<div class="person">${dot(w)}<b>${esc(w.name)}</b> <span class="muted small">${w.role === 'qc' || w.role === 'cutter' ? `${ROLE_NAME[w.role]} · ` : ''}${where} · $${w.wage.toFixed(2)}/day</span>
         <span class="small">${w.role === 'operator' ? `L ${pips(w.skill.lockstitch)} O ${pips(w.skill.overlock)}` : w.role === 'qc' ? `QC ${pips(w.skill.qc)}` : ''}</span>
+        ${has(s, 'morale') ? moraleBar(w.morale) : ''}${w.mentor ? `<span class="trait">learning from ${esc(workerById(s, w.mentor)?.name ?? '')}</span>` : ''}
         ${w.traits.map((t) => `<span class="trait" title="${TRAITS[t].text}">${TRAITS[t].name}</span>`).join('')}${leadButtons}
         <button class="mini" data-action="letGo" data-arg="${w.id}" aria-label="Let ${esc(w.name)} go">Let go</button></div>`;
     })
@@ -265,7 +324,7 @@ export function teamTabHtml(s: GameState): string {
         )
         .join('')
     : '<p class="muted small">Nobody else at the gate today. New applicants come every morning.</p>';
-  return `<h3>At the gate this morning</h3>${apps}<h3>Your team · ${money(dailyWages(s))}/day</h3>${people}`;
+  return `${has(s, 'morale') ? careHtml(s) : ''}${has(s, 'merchandising') ? officeHtml(s) : ''}<h3>At the gate this morning</h3>${apps}<h3>Your team · ${money(dailyWages(s))}/day</h3>${people}`;
 }
 
 /** Bác Tư's tips contain markup, so Vietnamese uses whole-text versions instead of the segment translator. */
@@ -340,11 +399,23 @@ export function reportHtml(s: GameState): string {
   const ch0 = s.chapterId === 'ch0' ? `<tr><td>Shorts packed</td><td><b>${o?.finished ?? 0}</b> (★ 290 · ★★ 340 · ★★★ 370)</td></tr>` : '';
   return `<div class="card report" role="dialog" aria-labelledby="rep-title"><div class="notebook"><h2 id="rep-title">Day ${s.day} · shift report</h2><table>
     ${ch0}<tr><td>Pieces packed today</td><td>${h?.pieces ?? 0}</td></tr><tr><td>Line efficiency</td><td>${Math.round((h?.efficiency ?? 0) * 100)}%</td></tr><tr><td>Breakdowns</td><td>${h?.breakdowns ?? 0}</td></tr>${money_}</table>
+    ${has(s, 'morale') ? `<p class="small">Average morale ${moraleBar(s.workers.reduce((a, w) => a + w.morale, 0) / Math.max(1, s.workers.length))} · <span>welfare ${welfareCount(s)}/3</span></p>` : ''}
+    ${s.tet && s.tet.returned + s.tet.left.length > 0 ? `<p class="small">After Tết: ${s.tet.returned} came back, ${s.tet.left.length} stayed home.</p>` : ''}
     ${s.negativeDays > 0 ? '<p class="bad">You are in the red. One more day like this and the workshop closes.</p>' : ''}</div>
     <div class="buttons"><button class="primary" data-action="sleep">${last ? 'See how it went' : 'Sleep until 07:00'}</button></div></div>`;
 }
 
-export function chapterEndHtml(s: GameState, hasNext: boolean): string {
+export function chapterEndHtml(s: GameState, hasNext: boolean, unlocked: string[] = [], share = ''): string {
+  const ch = chapterOf(s);
+  const ach = unlocked.length
+    ? `<h3>New achievements</h3><ul class="goals">${unlocked.map((id) => ACHIEVEMENTS.find((a) => a.id === id)!).map((a) => `<li class="ok">🏅 <b>${esc(a.name)}</b>: <span>${esc(a.text)}</span></li>`).join('')}</ul>`
+    : '';
+  if (ch.generator) {
+    return `<div class="card report" role="dialog" aria-labelledby="end-title"><div class="notebook"><h2 id="end-title">${esc(ch.name)}</h2>
+      <p>${s.failed === 'bankrupt' ? 'The money ran out.' : 'You closed the factory.'} <span>You lasted</span> <b>${s.history.length}</b> days and shipped ${s.orders.filter((o) => o.status === 'shipped').length} orders.</p>${ach}</div>
+      <div class="buttons"><button class="primary" data-action="title">Menu</button></div></div>`;
+  }
+  const shareBox = share ? `<div class="share"><code>${esc(share)}</code><button data-action="copyShare">Copy</button></div>` : '';
   const checks = starChecks(s);
   const n = stars(s);
   const texts = chapterOf(s).starText;
@@ -352,11 +423,33 @@ export function chapterEndHtml(s: GameState, hasNext: boolean): string {
   const verdict = s.failed === 'bankrupt' ? 'The workshop ran out of money.' : n === 0 ? 'Not this time. Try again: every day teaches something.' : n === 3 ? 'Legendary. The whole street talks about your line.' : 'Well done.';
   return `<div class="card report" role="dialog" aria-labelledby="end-title"><div class="notebook"><h2 id="end-title">${esc(chapterOf(s).name)}</h2>
     <div class="bigstars" aria-label="${n} of 3 stars">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</div><p>${verdict}</p><ul class="goals">${lines}</ul>
-    ${has(s, 'orders') ? `<p>Final cash: <b>${money(s.cash)}</b></p>` : ''}</div>
-    <div class="buttons"><button data-action="title">Menu</button><button data-action="replay">Replay</button>${hasNext && n > 0 ? '<button class="primary" data-action="next">Next chapter</button>' : ''}</div></div>`;
+    ${has(s, 'orders') ? `<p>Final cash: <b>${money(s.cash)}</b></p>` : ''}${shareBox}${ach}</div>
+    <div class="buttons"><button data-action="title">Menu</button>${ch.scoreStars ? '' : '<button data-action="replay">Replay</button>'}${hasNext && n > 0 && !ch.scoreStars ? '<button class="primary" data-action="next">Next chapter</button>' : ''}</div></div>`;
 }
 
-export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink = false): string {
+export interface TitleExtras {
+  dailyId: string;
+  dailyName: string;
+  dailyPlace: string;
+  dailyBest: number | undefined;
+  d1: { days: number; returned: number };
+}
+
+export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink = false, x?: TitleExtras): string {
+  const career = careerTitle(p.stars);
+  const got = p.achievements ?? [];
+  const unlockedSandbox = (p.stars.ch2 ?? 0) > 0;
+  const extra = x
+    ? `<div class="career"><b>${esc(career.title)}</b> · ${career.total} ★${career.next !== null ? ` <span class="muted small">(next title at ${career.next} ★)</span>` : ''}</div>
+    <div class="modes"><button class="chapter" data-action="daily"><span class="num">☀</span><span><b>${esc(x.dailyName)}</b><small>${esc(x.dailyPlace)}</small></span><span class="st">${x.dailyBest !== undefined ? `${x.dailyBest}` : 'new'}</span></button>
+    <div class="sandbox"><span><b>Sandbox</b><small>${unlockedSandbox ? `Endless factory${p.sandboxBest ? ` · best ${p.sandboxBest} days` : ''}` : 'Unlocks after Chapter 2'}</small></span>${[1, 2, 3, 4]
+      .map((n) => `<button class="mini chip" data-action="sandbox" data-arg="${n}" ${unlockedSandbox ? '' : 'disabled'}>${n} line${n > 1 ? 's' : ''}</button>`)
+      .join('')}</div></div>
+    <details class="ach"><summary>Achievements · ${got.length}/${ACHIEVEMENTS.length}</summary><ul class="goals">${ACHIEVEMENTS.map((a) => `<li class="${got.includes(a.id) ? 'ok' : 'muted'}">${got.includes(a.id) ? '🏅' : '○'} <b>${esc(a.name)}</b>: <span>${esc(a.text)}</span></li>`).join('')}</ul></details>
+    <details class="ach"><summary>Play log</summary><p class="small muted">An optional diary of your sessions, kept only on this device, to help playtests. Nothing is sent anywhere.</p>
+    <div class="row center"><div class="seg"><button data-action="log" data-arg="1" aria-pressed="${!!p.log}">On</button><button data-action="log" data-arg="0" aria-pressed="${!p.log}">Off</button></div><button class="mini" data-action="logExport">Export JSON</button></div>
+    <p class="small muted center">Days played: ${x.d1.days} · came back the next day: ${x.d1.returned}</p></details>`
+    : '';
   const chapters = CHAPTERS.map((c, i) => {
     const unlocked = i === 0 || (p.stars[CHAPTERS[i - 1]!.id] ?? 0) > 0;
     const st = p.stars[c.id] ?? 0;
@@ -369,7 +462,7 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink
     .join('');
   return `<div class="title"><h1>Sewing<span>Factory</span>Mania</h1><p class="sub">Saigon, 1992. Six machines, a family workshop, and the whole world wanting shirts.</p>
     ${hasSave ? `<button class="primary big" data-action="continue">Continue <small>${esc(saveLabel)}</small></button>` : ''}
-    <div class="chapters">${chapters}</div>
+    <div class="chapters">${chapters}</div>${extra}
     <div class="row center"><span class="muted small">Difficulty</span><div class="seg">${diffs}</div></div>
     <div class="row center"><span class="muted small">Language</span><div class="seg"><button data-action="lang" data-arg="en" aria-pressed="${getLang() === 'en'}">English</button><button data-action="lang" data-arg="vi" aria-pressed="${getLang() === 'vi'}">Tiếng Việt</button></div></div>
     <div class="row center"><span class="muted small">Display</span><div class="seg"><button data-action="eink" data-arg="0" aria-pressed="${!eink}">Colour</button><button data-action="eink" data-arg="1" aria-pressed="${eink}">E-ink</button></div></div>
@@ -377,7 +470,8 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink
 }
 
 export function introHtml(chapterId: string): string {
-  const c = CHAPTERS.find((x) => x.id === chapterId)!;
-  return `<div class="card" role="dialog" aria-labelledby="intro-title"><div class="mentor" aria-hidden="true">Chapter ${c.index} · ${c.year}</div><h2 id="intro-title">${esc(c.name)}</h2><p>${esc(c.intro)}</p>
+  const c = CHAPTER_BY_ID[chapterId]!;
+  const tag = c.scoreStars ? 'Daily Challenge' : c.generator ? 'Sandbox' : `Chapter ${c.index} · ${c.year}`;
+  return `<div class="card" role="dialog" aria-labelledby="intro-title"><div class="mentor" aria-hidden="true">${tag}</div><h2 id="intro-title">${esc(c.name)}</h2><p>${esc(c.intro)}</p>${c.modifier ? `<p><b>${esc(c.modifier.name)}</b>: <span>${esc(c.modifier.text)}</span></p>` : ''}
     <ul class="goals">${c.starText.map((t, i) => `<li>${'★'.repeat(i + 1)} ${esc(t)}</li>`).join('')}</ul><div class="buttons"><button class="primary" data-action="introOk">Open the workshop</button></div></div>`;
 }

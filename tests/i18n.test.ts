@@ -8,7 +8,7 @@ import { harvest } from './harvest';
 (globalThis as unknown as { document: unknown }).document ??= { documentElement: { lang: 'en' } };
 
 describe('Vietnamese translation', () => {
-  it('covers at least 95% of the strings seen while playing every chapter (PRD Phase 2)', () => {
+  it('covers at least 99% of the strings seen while playing every chapter, the Daily and the Sandbox (PRD Phase 3)', () => {
     const { html, canvas } = harvest();
     let total = 0;
     let ok = 0;
@@ -24,9 +24,9 @@ describe('Vietnamese translation', () => {
       }
     }
     const coverage = ok / total;
-    if (coverage < 0.95) console.log([...missing.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30));
+    if (coverage < 0.99) console.log([...missing.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30));
     expect(total).toBeGreaterThan(10000);
-    expect(coverage).toBeGreaterThanOrEqual(0.95);
+    expect(coverage).toBeGreaterThanOrEqual(0.99);
   }, 120000);
 
   it('every mentor tip has a Vietnamese version', () => {

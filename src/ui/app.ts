@@ -9,6 +9,10 @@ import { createChapter } from '../sim/state';
 import type { GameState, SimEvent } from '../sim/types';
 import { LineAudio } from './audio';
 import { setLang, tr, trHtml, type Lang } from './i18n';
+import { d1Return, exportLog, logEvent, readLog } from './telemetry';
+import { newAchievements, prepareDaily, shareLine } from '../sim/meta';
+import { ensureChapter, sandboxDef } from '../data/generated';
+import { CHAPTER_BY_ID } from '../data/chapters';
 import { playFabricInspection, playMarker, playSpotTheDefect } from './minigame';
 import { PRODUCTS } from '../data/products';
 import { shipmentRolls } from '../sim/sourcing';
@@ -46,6 +50,9 @@ export class App {
   private minigame = false;
   private lastProduct: string | null = null;
   private overlayMode: Overlay = 'none';
+  private visibleLines: number[] = [0];
+  private unlocked: string[] = [];
+  private share = '';
   private lastDraw = 0;
   private renders = { top: '', panel: '', overlay: '' };
 
@@ -75,6 +82,7 @@ export class App {
     );
     this.audio.setEnabled(this.progress.sound);
     setLang(this.progress.lang ?? (navigator.language?.toLowerCase().startsWith('vi') ? 'vi' : 'en'));
+    logEvent(!!this.progress.log, { e: 'session' });
     const q = new URLSearchParams(location.search).get('eink');
     const auto = window.matchMedia?.('(update: slow), (monochrome)').matches ?? false;
     const eink = q === '1' || (q !== '0' && (this.progress.eink ?? auto));
@@ -89,22 +97,39 @@ export class App {
 
   private showTitle(): void {
     if (this.s && this.s.phase !== 'done') saveGame(this.s);
+    if (this.s && CHAPTER_BY_ID[this.s.chapterId]?.generator) {
+      this.progress.sandboxBest = Math.max(this.progress.sandboxBest ?? 0, this.s.history.length);
+      saveProgress(this.progress);
+    }
     this.s = null;
     document.body.classList.add('at-title');
     const save = loadGame();
-    const label = save ? `${CHAPTERS.find((c) => c.id === save.chapterId)?.name ?? ''} · ${dayLabel(save.day)}` : '';
+    if (save) ensureChapter(save.chapterId);
+    const label = save ? `${CHAPTER_BY_ID[save.chapterId]?.name ?? ''} · ${dayLabel(save.day)}` : '';
     this.overlay.hidden = false;
-    this.overlay.innerHTML = trHtml(titleHtml(this.progress, !!save && save.phase !== 'done', label, isEink()));
+    const daily = prepareDaily(todayKey());
+    this.overlay.innerHTML = trHtml(
+      titleHtml(this.progress, !!save && save.phase !== 'done', label, isEink(), {
+        dailyId: daily.id,
+        dailyName: daily.name,
+        dailyPlace: `${daily.place} · ★ ${daily.scoreStars![0]} · ★★ ${daily.scoreStars![1]} · ★★★ ${daily.scoreStars![2]}`,
+        dailyBest: this.progress.dailyBest?.[daily.id],
+        d1: d1Return(readLog()),
+      }),
+    );
     this.renders.overlay = '';
   }
 
-  private startChapter(id: string): void {
-    const ch = CHAPTERS.find((c) => c.id === id)!;
+  private startChapter(id: string, seedOverride?: number): void {
+    const ch = CHAPTER_BY_ID[id] ?? ensureChapter(id)!;
     const today = new Date();
     const seed = (today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate()) * 10 + ch.index;
     const seedParam = Number(new URLSearchParams(location.search).get('seed'));
-    this.begin(createChapter(id, seedParam > 0 ? seedParam : seed, { difficulty: this.progress.difficulty, campaign: this.progress.campaign }));
+    this.begin(createChapter(id, seedOverride ?? (seedParam > 0 ? seedParam : seed), { difficulty: this.progress.difficulty, campaign: this.progress.campaign }));
     this.intro = true;
+    this.unlocked = [];
+    this.share = '';
+    logEvent(!!this.progress.log, { e: 'chapterStart', ch: id });
   }
 
   private begin(s: GameState): void {
@@ -119,8 +144,36 @@ export class App {
     this.acc = 0;
     this.intro = false;
     this.lastProduct = activeOrder(s)?.product ?? null;
-    this.renderer.resize(lineCounts(s));
+    this.visibleLines = s.lines.length > 2 ? [0, 1] : s.lines.map((_, i) => i);
+    this.renderer.resize(s, this.visibleLines);
+    this.renderLinePicker();
     this.renderOverlayButton();
+  }
+
+  /** With three or more lines, the map shows one pair at a time; chips switch between them. */
+  private renderLinePicker(): void {
+    const el = document.getElementById('linePicker');
+    if (!el) return;
+    const s = this.s;
+    if (!s || s.lines.length <= 2) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    const groups: number[][] = [];
+    for (let i = 0; i < s.lines.length; i += 2) groups.push(s.lines.slice(i, i + 2).map((_, k) => i + k));
+    const alarm = (l: number) =>
+      s.stations.some((st) => st.line === l && (st.broken || st.pile.length >= 7 || (st.opId && st.machine !== 'qc' && st.machine !== 'cutting' && !st.workerId && !s.stations.some((x) => x.line === l && x.opId === st.opId && x.workerId))));
+    el.hidden = false;
+    el.innerHTML = trHtml(
+      groups
+        .map((g) => {
+          const label = g.map((l) => s.lines[l]!.name.slice(-1)).join(' + ');
+          const on = g.join(',') === this.visibleLines.join(',');
+          return `<button data-action="lines" data-arg="${g.join(',')}" aria-pressed="${on}" aria-label="Show lines ${label}">${label}${g.some(alarm) ? '<span class="alarm" aria-hidden="true"></span>' : ''}</button>`;
+        })
+        .join(''),
+    );
   }
 
   private renderOverlayButton(): void {
@@ -160,6 +213,7 @@ export class App {
       }
       this.renderTop();
       this.renderPanel();
+      if (s.lines.length > 2 && Math.floor(t / 1000) !== Math.floor((t - dt) / 1000)) this.renderLinePicker();
       this.renderOverlay();
     }
     requestAnimationFrame((n) => this.frame(n));
@@ -192,6 +246,7 @@ export class App {
           break;
         case 'shiftEnd':
           saveGame(s);
+          logEvent(!!this.progress.log, { e: 'shiftEnd', ch: s.chapterId, day: s.day });
           break;
         case 'note':
           this.toast(e.text);
@@ -225,12 +280,16 @@ export class App {
     if (has(s, 'power')) this.queueTip('power');
     if (has(s, 'leaders') && s.minute > 7 * 60 + 30) this.queueTip('leaders');
     if (has(s, 'quality') && s.day >= 2) this.queueTip('overlay');
+    if (has(s, 'morale')) this.queueTip('morale');
+    if (has(s, 'training') && s.day >= 2) this.queueTip('mentor');
+    if (has(s, 'merchandising')) this.queueTip('office');
+    if (s.lines.length > 2) this.queueTip('lines');
   }
 
   // ───────────────────────────── input
 
   private bind(): void {
-    const resize = () => this.s && this.renderer.resize(lineCounts(this.s));
+    const resize = () => this.s && this.renderer.resize(this.s);
     window.addEventListener('resize', resize);
     new ResizeObserver(resize).observe(this.canvas);
 
@@ -324,9 +383,40 @@ export class App {
         return;
       case 'continue': {
         const save = loadGame();
-        if (save) this.begin(save);
+        if (save) {
+          if (save.chapterId.startsWith('daily-')) prepareDaily(Number(save.chapterId.slice(6)));
+          ensureChapter(save.chapterId);
+          this.begin(save);
+        }
         return;
       }
+      case 'daily': {
+        const def = prepareDaily(todayKey());
+        this.startChapter(def.id, todayKey());
+        return;
+      }
+      case 'sandbox': {
+        const seed = Math.floor(Math.random() * 100000);
+        const def = sandboxDef({ lines: Number(arg), seed });
+        CHAPTER_BY_ID[def.id] = def;
+        this.startChapter(def.id, seed);
+        return;
+      }
+      case 'log':
+        this.progress.log = arg === '1';
+        saveProgress(this.progress);
+        if (this.progress.log) logEvent(true, { e: 'session' });
+        this.showTitle();
+        return;
+      case 'logExport':
+        exportLog();
+        return;
+      case 'copyShare':
+        navigator.clipboard?.writeText(this.share).then(
+          () => this.toast('Copied: paste it to your friends.'),
+          () => this.toast(this.share),
+        );
+        return;
       case 'difficulty':
         this.progress.difficulty = arg as Progress['difficulty'];
         saveProgress(this.progress);
@@ -354,6 +444,14 @@ export class App {
         saveProgress(this.progress);
         setLang(this.progress.lang);
         this.showTitle();
+        return;
+      case 'lines':
+        if (this.s) {
+          this.visibleLines = arg.split(',').map(Number);
+          this.renderer.setVisible(this.s, this.visibleLines);
+          this.clearSelection();
+          this.renderLinePicker();
+        }
         return;
       case 'overlay':
         this.overlayMode = this.overlayMode === 'none' ? 'bottleneck' : this.overlayMode === 'bottleneck' ? 'quality' : 'none';
@@ -425,6 +523,19 @@ export class App {
       case 'letGo':
         this.command({ type: 'letGo', workerId: arg });
         return;
+      case 'welfare':
+        this.command({ type: 'welfare', item: arg as 'fans' | 'canteen' | 'water' });
+        return;
+      case 'mentor': {
+        const [junior, senior] = arg.split(':');
+        this.command({ type: 'mentor', junior: junior!, senior: senior === 'none' ? null : senior! });
+        return;
+      }
+      case 'policy': {
+        const [quote, extras] = arg.split(':');
+        this.command({ type: 'policy', quote: Number(quote), extras: extras === 'true' });
+        return;
+      }
       case 'buy': {
         const [supplier, orderId, rolls] = arg.split(':');
         if (this.command({ type: 'buy', supplier: supplier!, orderId: Number(orderId), rolls: Number(rolls) })) this.toast(`Ordered ${rolls} rolls. Check the Fabric tab for the arrival day.`);
@@ -458,6 +569,24 @@ export class App {
   private finishChapter(): void {
     const s = this.s!;
     const n = stars(s);
+    const ch = CHAPTER_BY_ID[s.chapterId]!;
+    this.unlocked = newAchievements(s, this.progress.achievements ?? []);
+    this.progress.achievements = [...(this.progress.achievements ?? []), ...this.unlocked];
+    logEvent(!!this.progress.log, { e: 'chapterEnd', ch: s.chapterId, day: s.day, stars: n });
+    if (ch.scoreStars) {
+      const pieces = s.orders.reduce((a, o) => a + o.finished, 0);
+      this.progress.dailyBest = { ...this.progress.dailyBest, [s.chapterId]: Math.max(this.progress.dailyBest?.[s.chapterId] ?? 0, pieces) };
+      this.share = shareLine(s);
+      saveProgress(this.progress);
+      clearGame();
+      return;
+    }
+    if (ch.generator) {
+      this.progress.sandboxBest = Math.max(this.progress.sandboxBest ?? 0, s.history.length);
+      saveProgress(this.progress);
+      clearGame();
+      return;
+    }
     this.progress.stars[s.chapterId] = Math.max(this.progress.stars[s.chapterId] ?? 0, n);
     this.progress.campaign = { ...this.progress.campaign, ...s.campaign };
     saveProgress(this.progress);
@@ -500,7 +629,7 @@ export class App {
     else if (this.tip) html = tipHtml(tipText(this.tip));
     else if (s.decisions.length) html = decisionHtml(s, s.decisions[0]!);
     else if (s.phase === 'report') html = reportHtml(s);
-    else if (s.phase === 'done') html = chapterEndHtml(s, chapterOf(s).index + 1 < CHAPTERS.length);
+    else if (s.phase === 'done') html = chapterEndHtml(s, chapterOf(s).index + 1 < CHAPTERS.length, this.unlocked, this.share);
     html = trHtml(html);
     if (html === this.renders.overlay) return;
     this.renders.overlay = html;
@@ -519,6 +648,8 @@ export class App {
   }
 }
 
-function lineCounts(s: GameState): number[] {
-  return s.lines.map((_, i) => s.stations.filter((st) => st.line === i).length);
+
+function todayKey(): number {
+  const d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 }

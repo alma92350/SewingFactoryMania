@@ -62,6 +62,22 @@ export const TIPS: Record<string, Tip> = {
     title: 'See the line differently.',
     body: 'The <b>◐</b> button on the map shows the bottleneck view (red = the slowest step of each line) and the quality view (defects made today at each machine).',
   },
+  morale: {
+    title: 'People are not machines, con.',
+    body: 'Every seamstress now has a <b>morale</b>. Fans, a canteen and clean water raise it every night; overtime and tiredness lower it. Happy people sew faster and cleaner, and they come back after Tết. Below a third, they leave for a bigger factory. The 1994 Labour Code allows three overtime evenings a month.',
+  },
+  mentor: {
+    title: 'Teach, and the line grows.',
+    body: 'Tap a junior seamstress and choose a <b>mentor</b>: a senior who teaches her while sewing a little slower. The junior learns faster and slowly gains the senior’s skill.',
+  },
+  office: {
+    title: 'An office of your own.',
+    body: 'A <b>merchandiser</b> answers routine faxes with your quote policy (Team tab) and checks the samples. A <b>production planner</b> buys the fabric and moves waiting orders to idle lines. You keep the inspections, the cut-offs and the family.',
+  },
+  lines: {
+    title: 'More lines than eyes.',
+    body: 'The map shows two lines at a time. The buttons at the bottom left switch between them; a red dot means a line needs you (a breakdown, a big pile, or a step with nobody on it).',
+  },
   inspection: {
     title: 'After the inspection.',
     body: 'The defect report shows which operation, which seamstress and which cause made the defects. Learning and worn needles are the usual suspects; QC catches most of the rest.',

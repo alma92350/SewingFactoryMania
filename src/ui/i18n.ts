@@ -32,6 +32,8 @@ const NAMES = [
   'Saigon Port',
   'Line A',
   'Line B',
+  'Line C',
+  'Line D',
 ]
   .filter((n, i, a) => a.indexOf(n) === i)
   .sort((a, b) => b.length - a.length);
@@ -66,6 +68,7 @@ function fill(template: string, names: string[], nums: string[]): string {
 
 export function hasTranslation(segment: string): boolean {
   const s = decode(segment.trim());
+  if (s.startsWith('SewingFactoryMania #')) return true; // the share line stays the same in every language
   if (!/\p{L}/u.test(s)) return true;
   if (s.replace(/[^\p{L}]/gu, '').length <= 2) return true; // initials on avatars, single letters
   const { key } = keyOf(s);

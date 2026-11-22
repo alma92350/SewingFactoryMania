@@ -12,6 +12,13 @@ export interface Progress {
   eink?: boolean;
   /** Language chosen by the player (undefined = from the browser). */
   lang?: 'en' | 'vi';
+  achievements?: string[];
+  /** Best Daily Challenge score by daily id. */
+  dailyBest?: Record<string, number>;
+  /** Most days survived in the Sandbox. */
+  sandboxBest?: number;
+  /** Opt-in local play log. */
+  log?: boolean;
 }
 
 const PROGRESS_KEY = 'sfm.progress.v1';

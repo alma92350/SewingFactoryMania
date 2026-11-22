@@ -73,7 +73,7 @@ for (const [name, opts] of [
   });
   await page.mouse.click(box.x + lan.x, box.y + lan.y);
   const spare = await page.evaluate(() => {
-    const c = window.__app.rendererForTests.layout.stations[3].table;
+    const c = window.__app.rendererForTests.layout.byIndex[3].table;
     return { x: c.x + c.w / 2, y: c.y + c.h / 2 };
   });
   await page.mouse.click(box.x + spare.x, box.y + spare.y);
