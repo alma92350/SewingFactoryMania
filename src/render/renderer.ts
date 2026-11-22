@@ -672,7 +672,8 @@ export class Renderer {
     const r = this.layout.radius * 0.55;
     const asleep = isLunch(s) || s.phase !== 'shift';
     const t = asleep ? 0 : timeMs / 7000;
-    const x = b.x + b.w * (0.55 + 0.38 * Math.sin(t));
+    // in portrait the right end of the bench holds the line picker: walk on the left half
+    const x = this.layout.portrait ? b.x + b.w * (0.22 + 0.14 * Math.sin(t)) : b.x + b.w * (0.55 + 0.38 * Math.sin(t));
     const y = b.y + b.h - r * 1.6;
     const dir = Math.cos(t) >= 0 ? 1 : -1;
     const fur = einkOn ? '#666' : '#e08a2e';
@@ -720,7 +721,7 @@ export class Renderer {
   /** The supplier's wall calendar in the office. */
   private drawCalendar(s: GameState): void {
     const cal = this.cosmetics.calendar;
-    if (!cal) return;
+    if (!cal || this.layout.portrait) return; // the portrait office strip has no wall space
     const ctx = this.ctx;
     const o = this.layout.office;
     const w = Math.min(26, o.w * 0.18);

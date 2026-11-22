@@ -7,19 +7,50 @@
 import { BUYERS } from '../data/buyers';
 import { APPLICANT_NAMES, CREW } from '../data/people';
 import { SUPPLIERS } from '../data/suppliers';
-import { VI, VI_NAMES } from './vi';
-import { FR, FR_NAMES } from './fr';
-
 export type Lang = 'en' | 'vi' | 'fr';
 export type TargetLang = Exclude<Lang, 'en'>;
 export const LANGS: TargetLang[] = ['vi', 'fr'];
-const DICTS: Record<TargetLang, Record<string, string>> = { vi: VI, fr: FR };
-const NAME_MAPS: Record<TargetLang, Record<string, string>> = { vi: VI_NAMES, fr: FR_NAMES };
+type Tips = Record<string, { title: string; body: string }>;
+
+// Dictionaries are loaded on demand (performance pass): an English player never downloads them.
+const DICTS: Record<TargetLang, Record<string, string>> = { vi: {}, fr: {} };
+const NAME_MAPS: Record<TargetLang, Record<string, string>> = { vi: {}, fr: {} };
+const TIPS_BY_LANG: Record<TargetLang, Tips> = { vi: {}, fr: {} };
+const loaded = new Set<TargetLang>();
 let lang: Lang = 'en';
+
+/** Make a language usable synchronously (the loader below, and tests). */
+export function registerLang(l: TargetLang, dict: Record<string, string>, names: Record<string, string>, tips: Tips): void {
+  DICTS[l] = dict;
+  NAME_MAPS[l] = names;
+  TIPS_BY_LANG[l] = tips;
+  loaded.add(l);
+}
+
+/** Fetch a language's dictionary (a separate chunk) if it is not loaded yet. */
+export async function loadLang(l: Lang): Promise<void> {
+  if (l === 'en' || loaded.has(l)) return;
+  if (l === 'vi') {
+    const m = await import('./vi');
+    registerLang('vi', m.VI, m.VI_NAMES, m.VI_TIPS);
+  } else {
+    const m = await import('./fr');
+    registerLang('fr', m.FR, m.FR_NAMES, m.FR_TIPS);
+  }
+}
+
+export function isLoaded(l: Lang): boolean {
+  return l === 'en' || loaded.has(l);
+}
 
 export function setLang(l: Lang): void {
   lang = l;
   document.documentElement.lang = l;
+}
+
+/** A mentor tip in the current language (whole text: tips contain markup). */
+export function localTip(id: string): { title: string; body: string } | undefined {
+  return lang === 'en' ? undefined : TIPS_BY_LANG[lang][id];
 }
 export function getLang(): Lang {
   return lang;

@@ -229,9 +229,37 @@ for (const [name, opts] of [
   const sandbox = await page.evaluate(() => ({ id: window.__app.state.chapterId, lines: window.__app.state.lines.length }));
   check(`${name} sandbox`, sandbox.id.startsWith('sandbox-2-') && sandbox.lines === 2, JSON.stringify(sandbox));
 
+  // ── Chapter 7: the shock, new markets, Má's advice
+  await page.evaluate(() => localStorage.setItem('sfm.progress.v1', JSON.stringify({ stars: { ch0: 2, ch1: 1, ch2: 1, ch3: 1, ch4: 1, ch5: 1, ch6: 1 }, campaign: { cat: 'adopt' }, difficulty: 'seamstress', sound: false, seenTips: [] })));
+  await page.goto(base);
+  await page.locator('[data-action="start"][data-arg="ch7"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  await clearOverlays(page);
+  await page.getByRole('tab', { name: /Orders/ }).click();
+  const look = page.locator('[data-action="prospect"][data-arg="saigon"]');
+  await look.waitFor({ timeout: 5000 });
+  await look.click();
+  const c7 = await page.evaluate(() => ({ prospects: window.__app.state.prospects.length, cat: !!window.__app.rendererForTests.cosmetics.collar }));
+  if (shots) await page.screenshot({ path: `${shots}/${name}-ch7.png` });
+  check(`${name} ch7`, c7.prospects === 1 && c7.cat, JSON.stringify(c7));
+
+  // ── Scrapbook and French
+  await page.goto(base);
+  await page.locator('[data-action="scrapbook"]').first().click();
+  const sb = await page.locator('#overlay').innerText();
+  check(`${name} scrapbook`, /scrapbook/i.test(sb), '');
+  await page.goto(base);
+  await page.locator('[data-action="lang"][data-arg="fr"]').click();
+  // the dictionary is its own chunk: wait for it
+  await page.waitForFunction(() => document.querySelector('#overlay').innerText.includes('Difficulté'), null, { timeout: 5000 }).catch(() => {});
+  const fr = await page.locator('#overlay').innerText();
+  check(`${name} fr`, fr.includes('L’atelier familial') && fr.includes('Difficulté'), '');
+  await page.locator('[data-action="lang"][data-arg="en"]').click();
+
   // ── Vietnamese
   await page.goto(base);
   await page.locator('[data-action="lang"][data-arg="vi"]').click();
+  await page.waitForFunction(() => document.querySelector('#overlay').innerText.includes('Độ khó'), null, { timeout: 5000 }).catch(() => {});
   const title = await page.locator('#overlay').innerText();
   check(`${name} vi`, title.includes('Xưởng may gia đình') && title.includes('Độ khó'), '');
 

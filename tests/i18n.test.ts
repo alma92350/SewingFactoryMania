@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { TIPS } from '../src/data/handbook';
-import { hasTranslation, LANGS, setLang, tr, trHtml } from '../src/ui/i18n';
-import { VI, VI_TIPS } from '../src/ui/vi';
-import { FR, FR_TIPS } from '../src/ui/fr';
+import { hasTranslation, LANGS, registerLang, setLang, tr, trHtml } from '../src/ui/i18n';
+import { VI, VI_NAMES, VI_TIPS } from '../src/ui/vi';
+import { FR, FR_NAMES, FR_TIPS } from '../src/ui/fr';
+
+registerLang('vi', VI, VI_NAMES, VI_TIPS);
+registerLang('fr', FR, FR_NAMES, FR_TIPS);
 import { harvest } from './harvest';
 
 // i18n.setLang touches document.documentElement; give it a minimal stand-in in Node

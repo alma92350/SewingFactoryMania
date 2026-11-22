@@ -25,13 +25,11 @@ import type { Decision, GameState, Order, Worker } from '../sim/types';
 import { workerColor } from '../render/renderer';
 import type { ViewState } from '../render/renderer';
 import type { Progress } from './storage';
-import { getLang } from './i18n';
+import { getLang, localTip } from './i18n';
 import { ACHIEVEMENTS, careerTitle } from '../sim/meta';
 import { bonusCost, welfareCount } from '../sim/morale';
 import { CHAPTER_BY_ID } from '../data/chapters';
 import { MODIFIERS } from '../data/generated';
-import { VI_TIPS } from './vi';
-import { FR_TIPS } from './fr';
 import { SUPPLIERS } from '../data/suppliers';
 import { MARKETS } from '../data/markets';
 import { layoffBlocked, newCustomers } from '../sim/macro';
@@ -354,8 +352,7 @@ export function teamTabHtml(s: GameState): string {
 
 /** Bác Tư's tips contain markup, so Vietnamese and French use whole-text versions instead of the segment translator. */
 export function tipText(id: string): Tip {
-  const l = getLang();
-  return (l === 'vi' && VI_TIPS[id]) || (l === 'fr' && FR_TIPS[id]) || TIPS[id]!;
+  return localTip(id) ?? TIPS[id]!;
 }
 
 export function bookTabHtml(seen: string[]): string {

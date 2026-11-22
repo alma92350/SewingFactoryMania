@@ -122,7 +122,7 @@ ul.goals li { padding: 2px 0; }
 .title button.chapter:disabled { opacity: 0.5; cursor: default; }
 .title button.chapter .num { font: 900 22px system-ui, sans-serif; color: var(--top); width: 24px; text-align: center; }
 .title button.chapter small { display: block; color: var(--muted); font-size: 12px; }
-.title button.chapter .st { margin-left: auto; color: #d4a800; letter-spacing: 1px; }
+.title button.chapter .st { margin-left: auto; color: #7a5c00; letter-spacing: 1px; }
 .row.center, .center { justify-content: center; text-align: center; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .seg button { border: 0; background: var(--bg); min-height: 40px; padding: 4px 10px; color: var(--ink); cursor: pointer; }

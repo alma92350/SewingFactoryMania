@@ -8,7 +8,7 @@ import { step } from '../sim/sim';
 import { createChapter } from '../sim/state';
 import type { GameState, SimEvent } from '../sim/types';
 import { LineAudio } from './audio';
-import { setLang, tr, trHtml, type Lang } from './i18n';
+import { isLoaded, loadLang, setLang, tr, trHtml, type Lang } from './i18n';
 import { d1Return, exportLog, logEvent, readLog } from './telemetry';
 import { newAchievements, prepareDaily, shareLine } from '../sim/meta';
 import { ensureChapter, sandboxDef } from '../data/generated';
@@ -84,7 +84,7 @@ export class App {
     );
     this.audio.setEnabled(this.progress.sound);
     const nav = navigator.language?.toLowerCase() ?? '';
-    setLang(this.progress.lang ?? (nav.startsWith('vi') ? 'vi' : nav.startsWith('fr') ? 'fr' : 'en'));
+    this.switchLang(this.progress.lang ?? (nav.startsWith('vi') ? 'vi' : nav.startsWith('fr') ? 'fr' : 'en'));
     logEvent(!!this.progress.log, { e: 'session' });
     const q = new URLSearchParams(location.search).get('eink');
     const auto = window.matchMedia?.('(update: slow), (monochrome)').matches ?? false;
@@ -92,6 +92,15 @@ export class App {
     setEink(eink);
     document.body.classList.toggle('eink', eink);
     this.bind();
+    // while a dialog is open, the game behind it is inert: no focus, hidden from screen readers
+    const app = document.getElementById('app');
+    if (app) {
+      const sync = () => {
+        app.inert = !this.overlay.hidden;
+      };
+      new MutationObserver(sync).observe(this.overlay, { attributes: true, attributeFilter: ['hidden'] });
+      sync();
+    }
     this.showTitle();
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -133,6 +142,20 @@ export class App {
     this.unlocked = [];
     this.share = '';
     logEvent(!!this.progress.log, { e: 'chapterStart', ch: id });
+  }
+
+  /** Change language; a dictionary that is not loaded yet arrives as its own chunk, then everything re-renders. */
+  private switchLang(l: Lang): void {
+    const apply = () => {
+      setLang(l);
+      this.renders = { top: '', panel: '', overlay: '' };
+      if (!this.s) this.showTitle();
+    };
+    if (isLoaded(l)) apply();
+    else
+      void loadLang(l).then(apply, () => {
+        setLang('en');
+      });
   }
 
   /** Looks only: caps, the cat's collar (if she was adopted), the calendar, the radio song. */
@@ -480,8 +503,7 @@ export class App {
       case 'lang':
         this.progress.lang = arg as Lang;
         saveProgress(this.progress);
-        setLang(this.progress.lang);
-        this.showTitle();
+        this.switchLang(this.progress.lang);
         return;
       case 'lines':
         if (this.s) {
