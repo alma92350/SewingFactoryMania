@@ -8,10 +8,14 @@ export interface Progress {
   difficulty: DifficultyId;
   sound: boolean;
   seenTips: string[];
+  /** Display mode chosen by the player (undefined = auto-detect). */
+  eink?: boolean;
+  /** Language chosen by the player (undefined = from the browser). */
+  lang?: 'en' | 'vi';
 }
 
 const PROGRESS_KEY = 'sfm.progress.v1';
-const SAVE_KEY = 'sfm.save.v2';
+const SAVE_KEY = 'sfm.save.v3';
 
 export function loadProgress(): Progress {
   const fallback: Progress = { stars: {}, campaign: {}, difficulty: 'seamstress', sound: true, seenTips: [] };

@@ -102,6 +102,7 @@ function drawDefects(s: GameState, st: Station, w: Worker, b: Bundle): void {
   for (let i = b.defects; i < b.pieces; i++) if (chance(s.rng, p)) n += 1;
   if (n === 0) return;
   b.defects += n;
+  st.defects += n;
   b.origins[st.opId!] = (b.origins[st.opId!] ?? 0) + n;
   const o = orderById(s, b.orderId);
   if (o) recordCause(o, st.opId!, w, n, defectTerms(s, st, w));

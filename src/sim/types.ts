@@ -40,6 +40,8 @@ export interface Station {
   pile: Bundle[];
   /** Pieces finished here today (fractional). */
   output: number;
+  /** Defective pieces made here today (for the quality overlay). */
+  defects: number;
 }
 
 export interface Worker {

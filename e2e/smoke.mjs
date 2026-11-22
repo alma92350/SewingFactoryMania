@@ -130,6 +130,51 @@ for (const [name, opts] of [
   const c2 = await page.evaluate(() => ({ sampled: window.__app.state.orders[0].sampled, factor: window.__app.state.orders[0].sampleFactor }));
   check(`${name} ch2`, c2.sampled === true && c2.factor === 1, `sampled=${c2.sampled} factor=${c2.factor}`);
 
+  // ── Chapter 3: marker game and buying fabric
+  await page.evaluate(() => localStorage.setItem('sfm.progress.v1', JSON.stringify({ stars: { ch0: 2, ch1: 1, ch2: 1, ch3: 1 }, campaign: {}, difficulty: 'seamstress', sound: false, seenTips: [] })));
+  await page.goto(base);
+  await page.locator('[data-action="start"][data-arg="ch3"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  await chooseFirst(page, 'family');
+  await dismissTips(page);
+  await chooseFirst(page, 'fax'); // Hanil CMT
+  await dismissTips(page);
+  await chooseFirst(page, 'fax'); // Mr. Leung FOB
+  await page.getByRole('button', { name: /Lay it yourself/ }).click();
+  await page.locator('.mcell').first().click();
+  if (shots) await page.screenshot({ path: `${shots}/${name}-marker.png` });
+  await page.locator('[data-mk="done"]').click();
+  await page.locator('[data-mg="ok"]').click();
+  await dismissTips(page);
+  const marker = await page.evaluate(() => window.__app.state.orders.find((o) => o.tag === 'golden').markerSet);
+  await page.getByRole('tab', { name: /Fabric/ }).click();
+  await page.locator('[data-action="buy"]').first().click();
+  const shipments = await page.evaluate(() => window.__app.state.shipments.length);
+  if (shots) await page.screenshot({ path: `${shots}/${name}-fabric.png` });
+  check(`${name} ch3`, marker === true && shipments === 1, `markerSet=${marker} shipments=${shipments}`);
+
+  // ── Chapter 4: two lines, overlay
+  await page.goto(base);
+  await page.locator('[data-action="start"][data-arg="ch4"]').click();
+  await page.locator('[data-action="introOk"]').click();
+  await dismissTips(page);
+  for (let i = 0; i < 6; i++) {
+    const choice = page.locator('#overlay button.choice:not([data-arg$=":play"])').first();
+    if (await choice.count()) await choice.click();
+    await dismissTips(page);
+  }
+  await page.locator('#overlayBtn').click();
+  const lines = await page.evaluate(() => window.__app.state.lines.map((l) => l.activeOrderId !== null));
+  const overlayText = await page.locator('#overlayBtn').textContent();
+  if (shots) await page.screenshot({ path: `${shots}/${name}-ch4.png` });
+  check(`${name} ch4`, lines.length === 2 && lines.every(Boolean) && /slowest/.test(overlayText ?? ''), `lines=${JSON.stringify(lines)} overlay=${overlayText}`);
+
+  // ── Vietnamese
+  await page.goto(base);
+  await page.locator('[data-action="lang"][data-arg="vi"]').click();
+  const title = await page.locator('#overlay').innerText();
+  check(`${name} vi`, title.includes('Xưởng may gia đình') && title.includes('Độ khó'), '');
+
   check(`${name} errors`, errors.length === 0, errors.join(' | '));
   await ctx.close();
 }

@@ -73,6 +73,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     current: null,
     pile: [],
     output: 0,
+    defects: 0,
   }));
 
   const workers: Worker[] = [];

@@ -25,8 +25,12 @@ import type { Decision, GameState, Order, Worker } from '../sim/types';
 import { workerColor } from '../render/renderer';
 import type { ViewState } from '../render/renderer';
 import type { Progress } from './storage';
+import { getLang } from './i18n';
+import { VI_TIPS } from './vi';
+import { SUPPLIERS } from '../data/suppliers';
+import { metresInTransit, metresPerBundle, rollsSummary, rollsToBuy } from '../sim/sourcing';
 
-export type Tab = 'line' | 'orders' | 'team' | 'book';
+export type Tab = 'line' | 'orders' | 'fabric' | 'team' | 'book';
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const money = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(Math.round(v)).toLocaleString('en')}`;
@@ -54,6 +58,20 @@ export function topbarHtml(s: GameState, speed: number, sound: boolean): string 
     const ok = day <= o.dueDay;
     goal = `<div class="goal" title="Active order">${esc(BUYERS[o.buyer]!.contact)} ${o.finished}/${o.qty} <span class="proj ${ok ? 'ok' : 'bad'}">⛴ day ${o.dueDay}${ok ? ' ✓' : ' ✗'}</span></div>`;
   }
+  if (s.lines.length > 1) {
+    const parts = s.lines
+      .map((_, i) => activeOrder(s, i))
+      .filter((x): x is Order => !!x)
+      .map((x) => {
+        const ok = projectedFinishDay(s, x) <= x.dueDay;
+        return `${esc(BUYERS[x.buyer]!.contact)} ${x.finished}/${x.qty} <span class="proj ${ok ? 'ok' : 'bad'}">⛴${x.dueDay}${ok ? '✓' : '✗'}</span>`;
+      });
+    goal = `<div class="goal">${parts.join(' · ')}</div>`;
+  }
+  const pw = s.power;
+  const power = pw
+    ? `<div class="power">${pw.rain ? '<span title="Rain today">☂</span>' : ''}${pw.off ? (pw.generator.running ? '<span class="gen">generator</span>' : '<span class="off">power cut</span>') : ''}</div>`
+    : '';
   const cash = has(s, 'orders') ? `<div class="cash ${s.cash < 0 ? 'bad' : ''}" aria-label="Cash">${money(s.cash)}</div>` : '';
   const ot = s.overtime ? '<span class="ot">overtime</span>' : '';
   return (
@@ -61,6 +79,7 @@ export function topbarHtml(s: GameState, speed: number, sound: boolean): string 
     `<div class="clock" aria-label="Time"><small>${dayLabel(s.day)}</small> ${clockLabel(Math.min(s.minute, s.overtime ? s.tuning.overtimeEnd : s.tuning.shiftEnd))}${ot}</div>` +
     cash +
     goal +
+    power +
     `<div class="speeds" role="group" aria-label="Speed">` +
     [0, 1, 2, 4].map((v) => `<button data-action="speed" data-arg="${v}" aria-pressed="${speed === v}" aria-label="${v === 0 ? 'Pause' : `${v}× speed`}">${v === 0 ? '⏸' : `${v}×`}</button>`).join('') +
     `</div><button class="sound" data-action="sound" aria-pressed="${sound}" aria-label="Sound">${sound ? '♪' : '♪̸'}</button>`
@@ -72,6 +91,7 @@ export function topbarHtml(s: GameState, speed: number, sound: boolean): string 
 export function tabsHtml(s: GameState, tab: Tab): string {
   const tabs: [Tab, string, string][] = [['line', 'Line', '']];
   if (has(s, 'orders')) tabs.push(['orders', 'Orders', s.orders.some((o) => o.status === 'active' && projectedFinishDay(s, o) > o.dueDay) ? '!' : '']);
+  if (has(s, 'sourcing')) tabs.push(['fabric', 'Fabric', s.orders.some((o) => rollsToBuy(s, o) > 0) ? '!' : '']);
   if (has(s, 'hiring')) {
     const seats = s.stations.filter((st) => st.opId !== null && st.workerId === null).length;
     tabs.push(['team', 'Team', seats > 0 && s.applicants.length ? String(seats) : '']);
@@ -95,7 +115,7 @@ export function lineTabHtml(s: GameState, view: ViewState): string {
       `<div class="row">${dot(w)}<b>${esc(w.name)}</b> <span class="muted">${esc(w.note)}</span></div>` +
       `<div class="row small">Lockstitch ${pips(w.skill.lockstitch)} Overlock ${pips(w.skill.overlock)} Buttonhole ${pips(w.skill.buttonhole)}${has(s, 'quality') ? ` QC ${pips(w.skill.qc)}` : ''}</div>` +
       (w.traits.length ? `<div class="row small">${w.traits.map((t) => `<span class="trait" title="${TRAITS[t].text}">${TRAITS[t].name}</span>`).join('')}</div>` : '') +
-      `<div class="row muted small">Knows: ${known || 'nothing yet: new operations start at 50% speed'}${w.fatigue > 0.3 ? ` · tired ${Math.round(w.fatigue * 100)}%` : ''}</div>` +
+      `<div class="row muted small"><span>Knows:</span> ${known || 'nothing yet: new operations start at 50% speed'}${w.fatigue > 0.3 ? ` · tired ${Math.round(w.fatigue * 100)}%` : ''}</div>` +
       `<div class="row hint">Now tap a machine to move ${esc(w.name)} there.</div>` +
       `<div class="row buttons">${w.station !== null ? `<button data-action="bench" data-arg="${w.id}">Send to bench</button>` : ''}<button data-action="close">Cancel</button></div>`
     );
@@ -104,10 +124,10 @@ export function lineTabHtml(s: GameState, view: ViewState): string {
   if (si !== null) {
     const st = s.stations[si]!;
     const w = workerById(s, st.workerId);
-    const o = activeOrder(s);
+    const o = activeOrder(s, st.line);
     const opName = st.opId ? opDef(st.opId).name : 'Spare machine';
     const rate = w && st.opId ? Math.round((60 * stationEfficiency(s, st)) / opDef(st.opId).smv) : 0;
-    const ops = st.machine === 'qc' || !o ? [] : PRODUCTS[o.product]!.ops.filter((x) => x.machine === st.machine);
+    const ops = st.machine === 'qc' || st.machine === 'cutting' || !o ? [] : PRODUCTS[o.product]!.ops.filter((x) => x.machine === st.machine);
     const fixing = s.repairQueue.includes(si) || s.agents.some((a) => a.target === si);
     const seatable = s.workers.filter((x) => x.id !== st.workerId && x.role !== 'mechanic' && !x.absent);
     return (
@@ -123,6 +143,10 @@ export function lineTabHtml(s: GameState, view: ViewState): string {
     );
   }
   const o = activeOrder(s);
+  if (s.lines.length > 1) {
+    const led = s.lines.map((l) => `${esc(l.name)}: ${l.leaderId ? `led by ${esc(workerById(s, l.leaderId)?.name ?? '')}` : 'no leader'}`).join(' · ');
+    return `<div class="row"><b>Tap a seamstress, then a machine. Two lines: hire line leaders so they balance for you.</b></div><div class="row muted small">${led} · breakdowns today ${s.stats.dayBreakdowns}</div>`;
+  }
   const hint = s.chapterId === 'ch0' && (o?.finished ?? 0) >= 290 ? 'Order done! Every extra piece is a bonus.' : 'Tap a seamstress, then tap a machine to move her.';
   return (
     `<div class="row"><b>${hint}</b></div>` +
@@ -145,7 +169,7 @@ function orderCard(s: GameState, o: Order): string {
     status = day <= o.dueDay ? `<span class="ok">On track: packed by day ${day}</span>` : `<span class="bad">Late at this pace${Number.isFinite(day) ? `: day ${day}` : ''}</span>`;
   }
   return `<div class="order"><div class="row"><b>${esc(b.contact)}</b> <span class="muted">${esc(b.name)} · ${b.origin}</span></div>
-    <div class="row small">${o.qty.toLocaleString('en')} ${p.plural} · $${o.price.toFixed(2)}/dz · worth ${money(orderValue(o))} · ⛴ day ${o.dueDay}${o.airFreight ? ' (air freight)' : ''}${has(s, 'quality') && b.inspection !== 'none' ? ` · ${b.inspection} inspection` : ''}</div>
+    <div class="row small">${s.lines.length > 1 ? `<b>${esc(s.lines[o.line]!.name)}</b> · ` : ''}${has(s, 'sourcing') ? `${o.mode === 'fob' ? 'FOB' : 'CMT'} · ` : ''}${o.qty.toLocaleString('en')} ${p.plural} · $${o.price.toFixed(2)}/dz · worth ${money(orderValue(o))} · ⛴ day ${o.dueDay}${o.airFreight ? ' (air freight)' : ''}${has(s, 'quality') && b.inspection !== 'none' ? ` · ${b.inspection} inspection` : ''}</div>
     <div class="bar"><div style="width:${pct}%"></div></div><div class="row small">${o.finished}/${o.qty} packed · ${status}</div></div>`;
 }
 
@@ -159,21 +183,82 @@ export function ordersTabHtml(s: GameState): string {
   );
 }
 
+const ROLE_NAME: Record<string, string> = {
+  operator: 'seamstress',
+  qc: 'QC inspector',
+  mechanic: 'mechanic',
+  cutter: 'cutter',
+  electrician: 'electrician',
+  leader: 'line leader',
+};
+
+export function fabricTabHtml(s: GameState): string {
+  const orders = s.orders.filter((o) => o.status === 'active' || o.status === 'queued');
+  const cards = orders
+    .map((o) => {
+      const b = BUYERS[o.buyer]!;
+      const p = PRODUCTS[o.product]!;
+      const st = rollsSummary(s, o.id);
+      const need = rollsToBuy(s, o);
+      const header = `<div class="row"><b>${esc(b.contact)}</b> <span class="muted small">${p.plural} · ${o.mode === 'fob' ? 'FOB: you buy the fabric' : 'CMT: the buyer’s fabric'} · marker ${Math.round(o.markerEff * 100)}%</span></div>
+        <div class="row small">In store: ${st.rolls} rolls (${st.metres} m) · on the way: ${Math.round(metresInTransit(s, o.id))} m · one bundle needs ${metresPerBundle(s, o).toFixed(1)} m</div>`;
+      if (o.mode !== 'fob') return `<div class="order">${header}</div>`;
+      const buy = Object.values(SUPPLIERS)
+        .map((sup) => {
+          const n = Math.max(1, need);
+          return `<div class="supplier"><div><b>${esc(sup.name)}</b> <span class="muted small">${esc(sup.origin)} · $${sup.price}/roll · ${sup.leadDays} day${sup.leadDays > 1 ? 's' : ''}</span><br><span class="small muted">${esc(sup.note)}</span></div>
+          <button class="mini ${need > 0 ? 'primary' : ''}" data-action="buy" data-arg="${sup.id}:${o.id}:${n}">Buy ${n} · $${n * sup.price}</button></div>`;
+        })
+        .join('');
+      return `<div class="order">${header}<div class="row small ${need > 0 ? 'bad' : 'ok'}">${need > 0 ? `${need} more rolls needed to cut the whole order` : 'Enough fabric ordered'}</div>${buy}</div>`;
+    })
+    .join('');
+  const transit = s.shipments
+    .filter((x) => x.status === 'transit')
+    .map((x) => {
+      const sup = SUPPLIERS[x.supplier]!;
+      const noticed = !x.delayed || s.day >= x.arriveDay - sup.lateDays;
+      const eta = x.delayed && !noticed ? x.arriveDay - sup.lateDays : x.arriveDay;
+      return `<li>${x.rolls} rolls from ${esc(sup.name)} · expected day ${eta}, 10:00${x.delayed && noticed ? ' (held at customs)' : ''}</li>`;
+    })
+    .join('');
+  const pallets = s.pallets
+    ? '<p class="small ok">The warehouse floor has pallets: rolls stay dry when the roof leaks.</p>'
+    : `<div class="row buttons"><button data-action="pallets">Buy pallets · $${s.tuning.palletsCost}</button><span class="muted small">Keeps rolls off the wet floor in the rainy season</span></div>`;
+  const inStore = s.warehouse.filter((r) => !r.rejected && r.metres > 0).length;
+  const aside = s.warehouse.filter((r) => r.rejected).length;
+  return `${cards || '<p class="muted">No order needs fabric right now.</p>'}<h3>On the way</h3>${transit ? `<ul class="small">${transit}</ul>` : '<p class="muted small">Nothing in transit.</p>'}<h3>Warehouse</h3>${pallets}<p class="small muted">${inStore} rolls in store, ${aside} set aside after inspection.</p>`;
+}
+
 export function teamTabHtml(s: GameState): string {
   const people = s.workers
     .map((w) => {
-      const where = w.absent ? 'home sick' : w.role === 'mechanic' ? 'mechanic' : w.station === null ? 'bench' : s.stations[w.station]!.opId ? opDef(s.stations[w.station]!.opId!).name : 'spare machine';
-      return `<div class="person">${dot(w)}<b>${esc(w.name)}</b> <span class="muted small">${w.role !== 'operator' ? `${w.role === 'qc' ? 'QC inspector' : 'mechanic'} · ` : ''}${where} · $${w.wage.toFixed(2)}/day</span>
+      const lead = s.lines.findIndex((l) => l.leaderId === w.id);
+      const where = w.absent
+        ? 'home sick'
+        : w.role === 'leader'
+          ? lead >= 0
+            ? `leads ${s.lines[lead]!.name}`
+            : 'no line yet'
+          : w.role === 'mechanic' || w.role === 'electrician'
+            ? ROLE_NAME[w.role]!
+            : w.station === null
+              ? 'bench' : s.stations[w.station]!.opId ? opDef(s.stations[w.station]!.opId!).name : 'spare machine';
+      const leadButtons =
+        w.role === 'leader' && has(s, 'leaders')
+          ? s.lines.map((l, i) => `<button class="mini chip" data-action="lead" data-arg="${w.id}:${i}" aria-pressed="${lead === i}">Lead ${esc(l.name)}</button>`).join('')
+          : '';
+      return `<div class="person">${dot(w)}<b>${esc(w.name)}</b> <span class="muted small">${w.role !== 'operator' && w.role !== 'leader' && w.role !== 'mechanic' && w.role !== 'electrician' ? `${ROLE_NAME[w.role]} · ` : ''}${where} · $${w.wage.toFixed(2)}/day</span>
         <span class="small">${w.role === 'operator' ? `L ${pips(w.skill.lockstitch)} O ${pips(w.skill.overlock)}` : w.role === 'qc' ? `QC ${pips(w.skill.qc)}` : ''}</span>
-        ${w.traits.map((t) => `<span class="trait" title="${TRAITS[t].text}">${TRAITS[t].name}</span>`).join('')}
+        ${w.traits.map((t) => `<span class="trait" title="${TRAITS[t].text}">${TRAITS[t].name}</span>`).join('')}${leadButtons}
         <button class="mini" data-action="letGo" data-arg="${w.id}" aria-label="Let ${esc(w.name)} go">Let go</button></div>`;
     })
     .join('');
   const apps = s.applicants.length
     ? s.applicants
         .map(
-          (a) => `<div class="person applicant"><b>${esc(a.name)}</b> <span class="muted small">${a.role === 'operator' ? 'seamstress' : a.role === 'qc' ? 'QC inspector' : 'mechanic'} · asks $${a.wage.toFixed(2)}/day</span>
-        <span class="small">${a.role === 'operator' ? `Lockstitch ${pips(a.skill.lockstitch)} Overlock ${pips(a.skill.overlock)} Buttonhole ${pips(a.skill.buttonhole)}` : a.role === 'qc' ? `QC ${pips(a.skill.qc)}` : ''}</span>
+          (a) => `<div class="person applicant"><b>${esc(a.name)}</b> <span class="muted small">${ROLE_NAME[a.role]} · asks $${a.wage.toFixed(2)}/day</span>
+        <span class="small">${a.role === 'operator' ? `Lockstitch ${pips(a.skill.lockstitch)} Overlock ${pips(a.skill.overlock)} Buttonhole ${pips(a.skill.buttonhole)}` : a.role === 'qc' ? `QC ${pips(a.skill.qc)}` : a.role === 'cutter' ? `Cutting ${pips(a.skill.cutting)}` : ''}</span>
         ${a.traits.map((t) => `<span class="trait" title="${TRAITS[t].text}">${TRAITS[t].name}</span>`).join('')}
         <span class="muted small">${esc(a.note)}</span>
         <button class="primary mini" data-action="hire" data-arg="${esc(a.id)}">Hire</button></div>`,
@@ -183,10 +268,15 @@ export function teamTabHtml(s: GameState): string {
   return `<h3>At the gate this morning</h3>${apps}<h3>Your team · ${money(dailyWages(s))}/day</h3>${people}`;
 }
 
+/** Bác Tư's tips contain markup, so Vietnamese uses whole-text versions instead of the segment translator. */
+export function tipText(id: string): Tip {
+  return (getLang() === 'vi' && VI_TIPS[id]) || TIPS[id]!;
+}
+
 export function bookTabHtml(seen: string[]): string {
   const tips = seen
     .filter((id) => TIPS[id])
-    .map((id) => `<details><summary>${TIPS[id]!.title}</summary><p>${TIPS[id]!.body}</p></details>`)
+    .map((id) => `<details><summary data-raw>${tipText(id).title}</summary><p data-raw>${tipText(id).body}</p></details>`)
     .join('');
   return `<h3>Bác Tư’s advice</h3>${tips || '<p class="muted small">Tips appear here once Bác Tư has told you.</p>'}<h3>Words of the trade</h3><dl>${GLOSSARY.map((g) => `<dt>${g.term}</dt><dd>${g.text}</dd>`).join('')}</dl>`;
 }
@@ -194,7 +284,7 @@ export function bookTabHtml(seen: string[]): string {
 // ───────────────────────────── overlays
 
 export function tipHtml(tip: Tip): string {
-  return `<div class="card" role="dialog" aria-labelledby="tip-title"><div class="mentor" aria-hidden="true">Bác Tư</div><h2 id="tip-title">${tip.title}</h2><p>${tip.body}</p><div class="buttons"><button class="primary" data-action="tipOk">Got it</button></div></div>`;
+  return `<div class="card" role="dialog" aria-labelledby="tip-title"><div class="mentor" aria-hidden="true">Bác Tư</div><h2 id="tip-title" data-raw>${tip.title}</h2><p data-raw>${tip.body}</p><div class="buttons"><button class="primary" data-action="tipOk">Got it</button></div></div>`;
 }
 
 const CAUSE_TEXT: Record<string, [string, string]> = {
@@ -266,7 +356,7 @@ export function chapterEndHtml(s: GameState, hasNext: boolean): string {
     <div class="buttons"><button data-action="title">Menu</button><button data-action="replay">Replay</button>${hasNext && n > 0 ? '<button class="primary" data-action="next">Next chapter</button>' : ''}</div></div>`;
 }
 
-export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string): string {
+export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink = false): string {
   const chapters = CHAPTERS.map((c, i) => {
     const unlocked = i === 0 || (p.stars[CHAPTERS[i - 1]!.id] ?? 0) > 0;
     const st = p.stars[c.id] ?? 0;
@@ -281,6 +371,8 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string): str
     ${hasSave ? `<button class="primary big" data-action="continue">Continue <small>${esc(saveLabel)}</small></button>` : ''}
     <div class="chapters">${chapters}</div>
     <div class="row center"><span class="muted small">Difficulty</span><div class="seg">${diffs}</div></div>
+    <div class="row center"><span class="muted small">Language</span><div class="seg"><button data-action="lang" data-arg="en" aria-pressed="${getLang() === 'en'}">English</button><button data-action="lang" data-arg="vi" aria-pressed="${getLang() === 'vi'}">Tiếng Việt</button></div></div>
+    <div class="row center"><span class="muted small">Display</span><div class="seg"><button data-action="eink" data-arg="0" aria-pressed="${!eink}">Colour</button><button data-action="eink" data-arg="1" aria-pressed="${eink}">E-ink</button></div></div>
     <p class="muted small center">Free, no ads, works offline. Inspired by DataCenterMania.</p></div>`;
 }
 

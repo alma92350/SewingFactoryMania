@@ -763,3 +763,51 @@ Doing nothing earns no star in any chapter. In Chapter 1 the bot always needs ov
 - Hong Kong's trial order is shorts (CMT), matching D14; FOB sourcing starts in Ch3 as planned.
 - The QC table only inspects when someone sits there; an empty QC table lets garments through unchecked (a softer failure than blocking the line).
 - No e-ink mode yet (planned for Phase 2).
+
+---
+
+## Phase 2 results (build 0.2.0, "The Fabric Hunt")
+
+**Shipped**
+- **Chapter 3 · The Fabric Hunt** (7 shifts, 1994): FOB orders where you buy the fabric. Three suppliers (Bình Minh: cheap, close, uneven shade; Daegu: excellent, 3 days, customs holds; Kowloon: fast, dear, wrong colour sometimes), shipments that arrive at 10:00 or a day late, fabric rolls that can be flawed or off-shade, inspection on arrival (micro-game, the cutter, or skip) with refunds for bad rolls, marker efficiency (micro-game or standard 78%), a **cutting table** that feeds every line, re-cutting of pieces scrapped for fabric defects. Orders: Hanil CMT shirts, Mr. Leung's FOB work jackets, Mrs. Lin's optional rush shorts. Family: **Má's savings** (+$300 now, −$330 at the end).
+- **Chapter 4 · Rain and Darkness** (7 shifts, rainy season 1994): **two lines** (orders only go to a line that has the machines they need; jeans need the bartack machine on line B), **power cuts** that stop the sewing machines (QC and cutting are by hand), a **generator** started by you (8 minutes, may fail if untested) or by an **electrician** (3 minutes, always), diesel costs, **roof leaks** on rainy days that spoil rolls unless the warehouse has **pallets**, the **flood** day (shipments delayed; family scene: close the afternoon to help the neighbours → two strong applicants the next morning), **line leaders** who balance their own line every 15 minutes. Orders: Mrs. Lin's jeans (CMT), Mr. Leung's jackets (FOB), Sakura-ya's optional polo reorder. Products added: work jackets (10 operations), jeans (11, including bartacks).
+- **People:** new roles (cutter, electrician, line leader), eight veteran crew members, six applicants a day in Chapter 4, specialists on the first morning in addition to the usual applicants.
+- **UI:** Fabric tab (suppliers with prices, lead times and notes, shipments with expected day and customs holds, warehouse, pallets), Team tab leader assignment, line badges and per-line counts, power and rain indicators, **bottleneck and quality overlays** (◐ button or `O`), two micro-games (**Fabric Inspection**, **Marker Puzzle**), new Bác Tư tips for every new system.
+- **Vietnamese:** a number- and name-aware translator over every panel, card, toast, micro-game and canvas label, a 600-entry dictionary with garment-trade vocabulary (chuyền, bó hàng, KCS, thùa khuy, giác sơ đồ, gia công…), whole-text tips, language switch on the title screen (defaults to Vietnamese on Vietnamese devices).
+- **E-ink mode:** auto-detected (`update: slow` / `monochrome`) or chosen on the title screen or with `?eink=1`; greys only, hatched bundles instead of fabric colours, no flights or needle animation, at most two redraws per second.
+
+**Measured with the bot** (Seamstress difficulty, 8 seeds per chapter)
+
+| Chapter | Bot stars | Cash at end | Overtime days | Quiet time (avg, max) | Bot actions per game hour |
+|---|---|---:|---:|---:|---:|
+| 0 | ★★ ×6, ★ ×2 | — | 0 | 23%, 24% | 0.56 |
+| 1 | ★★ ×8 | $1,020–1,034 | 1–3 | 22%, 23% | 0.73 |
+| 2 | ★★ ×7, ★ ×1 | $1,535–1,546 | 2–3 | 20%, 21% | 0.55 |
+| 3 | ★★ ×8 | $1,704–1,754 | 1–4 | 25%, 32% | 0.54 |
+| 4 | ★★ ×7, ★ ×1 | $2,174–2,290 | 2–6 | 27%, 42% | 0.54 |
+
+The bot never reaches ★★★ in any chapter; doing nothing earns no star in any chapter; every family choice (Má's machines, Uncle Sáu, Út, Má's savings, the flood) still wins.
+
+**Exit criteria status**
+
+| Criterion | Status |
+|---|---|
+| Quiet ≤ 50% | ✅ tested per chapter on the average of 8 seeds (no seed above 75%); measured 20–27% |
+| With line leaders, taps/min in Ch4 ≤ Ch2 by hand | ✅ tested (0.54 vs 0.55 actions per game hour) |
+| Micro-games ≤ 15 s, targets ≥ 44 px | ✅ Spot the Defect 15 s, Fabric Inspection ≤ 13 s, Marker Puzzle 15 s; marker cells ≥ 44 px, roll swatch 120 px |
+| VI covers ≥ 95% of harvested strings | ✅ tested: 100% of ≈160,000 segments harvested from all five chapters (views + canvas) |
+| Vietnamese playtesters rate authenticity ≥ 4/5; cultural review | ⏳ needs native speakers: the dictionary is marked for review |
+| Bot wins every chapter, ★★★ not free, ≤ 2 systems per chapter | ✅ tested (Ch3: sourcing + cutting; Ch4: power + leaders) |
+| Desktop and phone without errors | ✅ Playwright: Ch0 seating, Ch1 hiring, Ch2 sample, Ch3 marker + buying, Ch4 two lines + overlay, Vietnamese title |
+
+**Notable fixes found while building**
+- A needle change late in the day kept a machine blocked the next morning (service time carried across days).
+- An order missing a few scrapped pieces could never finish; scrapped pieces are now re-cut rounded up to a whole bundle.
+- The flood "help" choice closed the whole day instead of the afternoon.
+- Answering one card could open another (fax → marker) that froze the world until answered; the bot and the test helper now loop.
+
+**Deviations from the plan**
+- Trims (zippers, buttons) are not modelled; fabric is the only material.
+- Heat overlay not built (heat is not simulated yet); bottleneck and quality overlays shipped instead.
+- The marker puzzle uses tap-to-place on a 4-wide strip (no free dragging) to keep 44 px targets on phones.
+- Line leaders reuse the bot's balancing rules; there is no priority setting yet.

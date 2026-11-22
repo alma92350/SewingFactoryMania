@@ -8,19 +8,21 @@ Inspired by [DataCenterMania](https://github.com/alma92350/DataCenterMania).
 
 - Product requirements, brainstorm and phased plan: [`docs/PRD.md`](docs/PRD.md)
 
-## Current build: Phase 1 "The Family Workshop"
+## Current build: Phase 2 "The Fabric Hunt"
 
-Three chapters, 1992–1993:
+Five chapters, 1992–1994:
 
 | Ch | Name | New systems |
 |---|---|---|
 | 0 | The Family Workshop (one-shift tutorial) | the line: assign, bundles, bottlenecks, breakdowns |
 | 1 | The First Fax (6 shifts) | orders (faxes, quotes, vessel cut-off, overtime, money) and hiring |
 | 2 | The Man with the Ruler (6 shifts) | quality (defects, QC table, AQL inspection, sample check) and mechanics |
+| 3 | The Fabric Hunt (7 shifts) | sourcing (FOB orders, suppliers, shipments, fabric inspection) and the cutting table (marker) |
+| 4 | Rain and Darkness (7 shifts) | power cuts, the generator and rain; two lines with line leaders |
 
-Family choices (Má's machines, Uncle Sáu's letter, Út's future) change later chapters. Three difficulty levels, ★/★★/★★★ goals per chapter, autosave at every shift end, Handbook with Bác Tư's tips and a glossary, works offline.
+Family choices (Má's machines, Uncle Sáu's letter, Út's future, Má's savings, the flood) change the game. Three difficulty levels, ★/★★/★★★ goals per chapter, autosave at every shift end, Handbook with Bác Tư's tips and a glossary, four micro-games, bottleneck and quality overlays, **English and Vietnamese**, an **e-ink mode** (`?eink=1`), works offline.
 
-Controls: tap a seamstress, then tap a machine to move her (tapping an occupied machine swaps them). Tap a machine to change its job, seat someone, or fix it. Tabs: Line, Orders (overtime), Team (hire), Handbook. Keys: `Space` pause, `1` / `2` / `3` speed, `Esc` cancel. Add `?seed=N` to the URL to replay a specific day.
+Controls: tap a seamstress, then tap a machine to move her (tapping an occupied machine swaps them). Tap a machine to change its job, seat someone, or fix it. Tabs: Line, Orders (overtime), Fabric (suppliers, warehouse), Team (hire, line leaders), Handbook. Keys: `Space` pause, `1` / `2` / `3` speed, `O` map overlay, `Esc` cancel. Add `?seed=N` to the URL to replay a specific day.
 
 ## Develop
 
@@ -57,17 +59,21 @@ src/
     production.ts  stations, defects, routing, the QC table
     orders.ts      faxes, changeovers, shipping, cut-off, inspection, decisions
     agents.ts      director and mechanics
+    sourcing.ts    suppliers, shipments, rolls, inspection, cutting table
+    power.ts       power cuts, generator, rain, flood
+    leader.ts      line balancing shared by line leaders and the bot
     commands.ts    the only write path (assign, setOp, fix, decide, sample, hire, letGo, overtime, sleep)
     selectors.ts   derived read-only queries (bottleneck, projections, AQL plan)
     objectives.ts  chapter stars
     autopilot.ts   "competent player" bot used by the balance tests
   render/  layout math + Canvas 2D renderer (reads state, never writes)
-  ui/      app shell, views, Spot the Defect, storage, WebAudio rhythm engine
+  ui/      app shell, views, micro-games, i18n (EN/VI translator + dictionary), storage, WebAudio rhythm engine
 tests/     Vitest suites
 e2e/       Playwright smoke test on the production build
 ```
 
 - **The simulation is headless and deterministic.** Same seed and same commands give the same shift (tested).
 - **Balance is a test.** In every chapter the bot must pass ★ on every seed, doing nothing must fail, and ★★★ must not come free.
+- **Translation is a test.** A harvest of every string seen while the bot plays all chapters must be ≥ 95% covered in Vietnamese.
 - **Progressive disclosure is data.** Chapters declare their systems; a test fails if a chapter adds more than two.
 - **Pacing is a test.** A shift is 6–8 real minutes at 1×, and something visibly moves at least every 90 seconds.

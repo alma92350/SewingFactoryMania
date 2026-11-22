@@ -1,6 +1,6 @@
 import { CHAPTERS } from '../data/chapters';
 import { TIPS } from '../data/handbook';
-import { Renderer, type ViewState } from '../render/renderer';
+import { Renderer, isEink, setEink, type Overlay, type ViewState } from '../render/renderer';
 import { applyCommand, type Command } from '../sim/commands';
 import { stars } from '../sim/objectives';
 import { activeOrder, chapterOf, dayLabel, has, isWorking, projectedFinishDay } from '../sim/selectors';
@@ -8,10 +8,14 @@ import { step } from '../sim/sim';
 import { createChapter } from '../sim/state';
 import type { GameState, SimEvent } from '../sim/types';
 import { LineAudio } from './audio';
-import { playSpotTheDefect } from './minigame';
+import { setLang, tr, trHtml, type Lang } from './i18n';
+import { playFabricInspection, playMarker, playSpotTheDefect } from './minigame';
+import { PRODUCTS } from '../data/products';
+import { shipmentRolls } from '../sim/sourcing';
 import { clearGame, loadGame, loadProgress, saveGame, saveProgress, type Progress } from './storage';
 import {
   bookTabHtml,
+  fabricTabHtml,
   chapterEndHtml,
   decisionHtml,
   introHtml,
@@ -21,6 +25,7 @@ import {
   tabsHtml,
   teamTabHtml,
   tipHtml,
+  tipText,
   titleHtml,
   topbarHtml,
   type Tab,
@@ -40,6 +45,8 @@ export class App {
   private intro = false;
   private minigame = false;
   private lastProduct: string | null = null;
+  private overlayMode: Overlay = 'none';
+  private lastDraw = 0;
   private renders = { top: '', panel: '', overlay: '' };
 
   private top = document.getElementById('topbar')!;
@@ -67,6 +74,12 @@ export class App {
       () => !!this.s && this.speed > 0 && !this.paused(),
     );
     this.audio.setEnabled(this.progress.sound);
+    setLang(this.progress.lang ?? (navigator.language?.toLowerCase().startsWith('vi') ? 'vi' : 'en'));
+    const q = new URLSearchParams(location.search).get('eink');
+    const auto = window.matchMedia?.('(update: slow), (monochrome)').matches ?? false;
+    const eink = q === '1' || (q !== '0' && (this.progress.eink ?? auto));
+    setEink(eink);
+    document.body.classList.toggle('eink', eink);
     this.bind();
     this.showTitle();
     requestAnimationFrame((t) => this.frame(t));
@@ -81,7 +94,7 @@ export class App {
     const save = loadGame();
     const label = save ? `${CHAPTERS.find((c) => c.id === save.chapterId)?.name ?? ''} · ${dayLabel(save.day)}` : '';
     this.overlay.hidden = false;
-    this.overlay.innerHTML = titleHtml(this.progress, !!save && save.phase !== 'done', label);
+    this.overlay.innerHTML = trHtml(titleHtml(this.progress, !!save && save.phase !== 'done', label, isEink()));
     this.renders.overlay = '';
   }
 
@@ -106,7 +119,17 @@ export class App {
     this.acc = 0;
     this.intro = false;
     this.lastProduct = activeOrder(s)?.product ?? null;
-    this.renderer.resize(s.stations.length);
+    this.renderer.resize(lineCounts(s));
+    this.renderOverlayButton();
+  }
+
+  private renderOverlayButton(): void {
+    const btn = document.getElementById('overlayBtn');
+    if (!btn) return;
+    const s = this.s;
+    btn.hidden = !s || !has(s, 'quality');
+    btn.textContent = tr(this.overlayMode === 'none' ? '◐' : this.overlayMode === 'bottleneck' ? '◐ slowest' : '◐ defects');
+    btn.setAttribute('aria-label', tr(`Map view: ${this.overlayMode === 'none' ? 'normal' : this.overlayMode} (O)`));
   }
 
   private paused(): boolean {
@@ -130,7 +153,11 @@ export class App {
         }
       }
       this.checkTips();
-      this.renderer.draw(s, this.view, running ? this.acc : 0, t);
+      // e-ink screens redraw at most twice a second and never animate
+      if (!isEink() || t - this.lastDraw > 500) {
+        this.renderer.draw(s, this.view, running && !isEink() ? this.acc : 0, t, this.overlayMode);
+        this.lastDraw = t;
+      }
       this.renderTop();
       this.renderPanel();
       this.renderOverlay();
@@ -193,12 +220,17 @@ export class App {
     if (o) this.lastProduct = o.product;
     if (o && has(s, 'orders') && o.dueDay === s.day && s.minute >= 13 * 60 && projectedFinishDay(s, o) > o.dueDay) this.queueTip('vessel');
     if (s.orders.some((x) => x.inspections.length > 0)) this.queueTip('inspection');
+    if (has(s, 'sourcing') && s.orders.some((x) => x.mode === 'fob')) this.queueTip('sourcing');
+    if (has(s, 'cutting') && s.orders.length) this.queueTip('cutting');
+    if (has(s, 'power')) this.queueTip('power');
+    if (has(s, 'leaders') && s.minute > 7 * 60 + 30) this.queueTip('leaders');
+    if (has(s, 'quality') && s.day >= 2) this.queueTip('overlay');
   }
 
   // ───────────────────────────── input
 
   private bind(): void {
-    const resize = () => this.s && this.renderer.resize(this.s.stations.length);
+    const resize = () => this.s && this.renderer.resize(lineCounts(this.s));
     window.addEventListener('resize', resize);
     new ResizeObserver(resize).observe(this.canvas);
 
@@ -229,6 +261,7 @@ export class App {
       } else if (e.key === '1' || e.key === '2') this.action('speed', e.key);
       else if (e.key === '3' || e.key === '4') this.action('speed', '4');
       else if (e.key === 'Escape') this.clearSelection();
+      else if (e.key === 'o' || e.key === 'O') this.action('overlay', '');
     });
 
     document.addEventListener('visibilitychange', () => {
@@ -309,12 +342,51 @@ export class App {
         this.tab = arg as Tab;
         this.clearSelection();
         return;
+      case 'eink':
+        this.progress.eink = arg === '1';
+        saveProgress(this.progress);
+        setEink(this.progress.eink);
+        document.body.classList.toggle('eink', this.progress.eink);
+        this.showTitle();
+        return;
+      case 'lang':
+        this.progress.lang = arg as Lang;
+        saveProgress(this.progress);
+        setLang(this.progress.lang);
+        this.showTitle();
+        return;
+      case 'overlay':
+        this.overlayMode = this.overlayMode === 'none' ? 'bottleneck' : this.overlayMode === 'bottleneck' ? 'quality' : 'none';
+        this.renderOverlayButton();
+        return;
     }
     if (!s) return;
     switch (name) {
       case 'decide': {
         const [id, option] = arg.split(':');
         const d = s.decisions.find((x) => x.id === Number(id));
+        if (d?.kind === 'marker' && option === 'play') {
+          this.minigame = true;
+          this.renders.overlay = '';
+          playMarker(this.overlay, s.tuning.markerAuto, s.tuning.markerBest, (eff) => {
+            this.minigame = false;
+            this.command({ type: 'marker', decision: d.id, eff });
+            this.renders.overlay = '';
+          });
+          return;
+        }
+        if (d?.kind === 'fabric' && option === 'play' && d.shipmentId !== undefined) {
+          const rolls = shipmentRolls(s, d.shipmentId).map((r) => ({ id: r.id, condition: r.condition }));
+          const o = s.orders.find((x) => x.id === d.orderId);
+          this.minigame = true;
+          this.renders.overlay = '';
+          playFabricInspection(this.overlay, rolls, PRODUCTS[o?.product ?? 'shorts']!.fabric, (flagged) => {
+            this.minigame = false;
+            this.command({ type: 'fabricResult', decision: d.id, rolls: flagged });
+            this.renders.overlay = '';
+          });
+          return;
+        }
         if (d?.kind === 'sample' && option === 'play') {
           this.minigame = true;
           this.renders.overlay = '';
@@ -353,6 +425,19 @@ export class App {
       case 'letGo':
         this.command({ type: 'letGo', workerId: arg });
         return;
+      case 'buy': {
+        const [supplier, orderId, rolls] = arg.split(':');
+        if (this.command({ type: 'buy', supplier: supplier!, orderId: Number(orderId), rolls: Number(rolls) })) this.toast(`Ordered ${rolls} rolls. Check the Fabric tab for the arrival day.`);
+        return;
+      }
+      case 'pallets':
+        this.command({ type: 'pallets' });
+        return;
+      case 'lead': {
+        const [workerId, line] = arg.split(':');
+        this.command({ type: 'lead', workerId: workerId!, line: Number(line) });
+        return;
+      }
       case 'sleep':
         this.command({ type: 'sleep' });
         if (s.phase === 'done' && s.decisions.length === 0) this.finishChapter();
@@ -382,7 +467,7 @@ export class App {
   // ───────────────────────────── DOM rendering (only when the markup changes, so taps are never lost)
 
   private renderTop(): void {
-    const html = topbarHtml(this.s!, this.speed, this.progress.sound);
+    const html = trHtml(topbarHtml(this.s!, this.speed, this.progress.sound));
     if (html !== this.renders.top) {
       this.top.innerHTML = html;
       this.renders.top = html;
@@ -393,10 +478,11 @@ export class App {
     const s = this.s!;
     let body: string;
     if (this.tab === 'orders' && has(s, 'orders')) body = ordersTabHtml(s);
+    else if (this.tab === 'fabric' && has(s, 'sourcing')) body = fabricTabHtml(s);
     else if (this.tab === 'team' && has(s, 'hiring')) body = teamTabHtml(s);
     else if (this.tab === 'book') body = bookTabHtml(this.progress.seenTips);
     else body = lineTabHtml(s, this.view);
-    const html = tabsHtml(s, this.tab) + `<div class="tabbody">${body}</div>`;
+    const html = trHtml(tabsHtml(s, this.tab) + `<div class="tabbody">${body}</div>`);
     if (html !== this.renders.panel) {
       const scroll = this.panel.querySelector('.tabbody')?.scrollTop ?? 0;
       this.panel.innerHTML = html;
@@ -411,10 +497,11 @@ export class App {
     const s = this.s!;
     let html = '';
     if (this.intro) html = introHtml(s.chapterId);
-    else if (this.tip) html = tipHtml(TIPS[this.tip]!);
+    else if (this.tip) html = tipHtml(tipText(this.tip));
     else if (s.decisions.length) html = decisionHtml(s, s.decisions[0]!);
     else if (s.phase === 'report') html = reportHtml(s);
     else if (s.phase === 'done') html = chapterEndHtml(s, chapterOf(s).index + 1 < CHAPTERS.length);
+    html = trHtml(html);
     if (html === this.renders.overlay) return;
     this.renders.overlay = html;
     this.overlay.hidden = !html;
@@ -425,9 +512,13 @@ export class App {
   private toast(text: string): void {
     const el = document.createElement('div');
     el.className = 'toast';
-    el.textContent = text;
+    el.textContent = tr(text);
     this.toasts.appendChild(el);
     while (this.toasts.children.length > 3) this.toasts.firstElementChild?.remove();
     setTimeout(() => el.remove(), 3200);
   }
+}
+
+function lineCounts(s: GameState): number[] {
+  return s.lines.map((_, i) => s.stations.filter((st) => st.line === i).length);
 }

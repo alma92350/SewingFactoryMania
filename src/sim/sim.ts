@@ -160,6 +160,7 @@ export function endDay(s: GameState): void {
   s.stats.dayPieces = 0;
   for (const st of s.stations) {
     st.output = 0;
+    st.defects = 0;
     st.serviceUntil = 0; // clock values restart each morning
   }
   for (const w of s.workers) {

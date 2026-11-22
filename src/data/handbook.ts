@@ -42,6 +42,26 @@ export const TIPS: Record<string, Tip> = {
     title: 'You cannot fix everything yourself.',
     body: 'A <b>mechanic</b> notices breakdowns without being asked, repairs twice as fast as you, and changes worn needles before they snap. Look for one in the Team tab.',
   },
+  sourcing: {
+    title: 'You buy the fabric now.',
+    body: 'FOB orders pay more, but the fabric is yours to buy. Open the <b>Fabric</b> tab: the local mill is cheap and close but its shades vary, Korea is perfect but three days away (and customs may hold it), Hong Kong is fast and dear. Order a few spare rolls: bad rolls and scrapped pieces eat into your margin.',
+  },
+  cutting: {
+    title: 'Nothing is sewn before it is cut.',
+    body: 'The <b>cutting table</b> feeds every line. Seat a cutter there (or anyone, slower). When a truck arrives, inspect the rolls: an off-shade roll spoils every piece cut from it.',
+  },
+  power: {
+    title: 'Rainy season.',
+    body: 'The power goes out every afternoon. Someone must run to the <b>generator</b>; an <b>electrician</b> does it in minutes and knows its tricks. Keep the fabric off the wet floor: buy <b>pallets</b> in the Fabric tab.',
+  },
+  leaders: {
+    title: 'Two lines, one of you.',
+    body: 'Hire <b>line leaders</b> and give each a line in the Team tab. Every quarter of an hour they seat the bench, cover empty steps and point spare machines at the slowest step. You keep the big decisions.',
+  },
+  overlay: {
+    title: 'See the line differently.',
+    body: 'The <b>◐</b> button on the map shows the bottleneck view (red = the slowest step of each line) and the quality view (defects made today at each machine).',
+  },
   inspection: {
     title: 'After the inspection.',
     body: 'The defect report shows which operation, which seamstress and which cause made the defects. Learning and worn needles are the usual suspects; QC catches most of the rest.',

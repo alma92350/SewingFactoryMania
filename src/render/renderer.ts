@@ -1,11 +1,12 @@
 import { MACHINE_LABEL, PRODUCTS } from '../data/products';
-import { activeOrder, has, isLunch, isWorking, opDef, orderById, stationEfficiency, workerById } from '../sim/selectors';
+import { activeOrder, bottleneck, has, isLunch, isWorking, opCapacities, opDef, orderById, stationEfficiency, stationRate, workerById } from '../sim/selectors';
 import type { Agent, Bundle, GameState, Station, Worker } from '../sim/types';
 import { benchSlot, computeLayout, contains, officeSpot, type Layout, type Rect } from './layout';
+import { tr } from '../ui/i18n';
 
 /** Canvas renderer. Reads state, never writes it. */
 
-const C = {
+const COLOUR = {
   floor: '#f3ead7',
   tile: '#ebe0c8',
   wall: '#dfe8d8',
@@ -29,6 +30,43 @@ const C = {
   hair: '#2b2320',
 };
 
+/** E-ink: pure greys; meaning is carried by shape, border and pattern. */
+const EINK: typeof COLOUR = {
+  floor: '#ffffff',
+  tile: '#f2f2f2',
+  wall: '#e6e6e6',
+  ink: '#000000',
+  muted: '#444444',
+  table: '#d9d9d9',
+  tableEdge: '#000000',
+  lockstitch: '#333333',
+  overlock: '#555555',
+  buttonhole: '#222222',
+  bartack: '#444444',
+  cutting: '#666666',
+  broken: '#000000',
+  warn: '#555555',
+  danger: '#000000',
+  select: '#000000',
+  carton: '#bbbbbb',
+  director: '#000000',
+  mechanic: '#333333',
+  skin: '#dddddd',
+  hair: '#000000',
+};
+let C = COLOUR;
+let einkOn = false;
+
+export function setEink(on: boolean): void {
+  einkOn = on;
+  C = on ? EINK : COLOUR;
+}
+export function isEink(): boolean {
+  return einkOn;
+}
+
+export type Overlay = 'none' | 'bottleneck' | 'quality';
+
 export const WORKER_COLORS: Record<string, string> = {
   hoa: '#c2185b',
   thao: '#1565c0',
@@ -42,6 +80,7 @@ export const WORKER_COLORS: Record<string, string> = {
 const HIRE_COLORS = ['#3949ab', '#00897b', '#8e24aa', '#f4511e', '#43a047', '#6d4c41', '#1e88e5', '#c0ca33', '#d81b60', '#546e7a'];
 
 export function workerColor(w: Worker): string {
+  if (einkOn) return '#4d4d4d';
   if (WORKER_COLORS[w.id]) return WORKER_COLORS[w.id]!;
   let h = 0;
   for (const ch of w.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
@@ -71,30 +110,36 @@ export class Renderer {
 
   constructor(private canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
-    this.layout = computeLayout(1, 1, 1);
+    // every label goes through the translator (a no-op in English)
+    const fill = this.ctx.fillText.bind(this.ctx);
+    const measure = this.ctx.measureText.bind(this.ctx);
+    this.ctx.fillText = ((t: string, x: number, y: number, w?: number) => (w === undefined ? fill(tr(t), x, y) : fill(tr(t), x, y, w))) as typeof this.ctx.fillText;
+    this.ctx.measureText = ((t: string) => measure(tr(t))) as typeof this.ctx.measureText;
+    this.layout = computeLayout(1, 1, [1]);
   }
 
-  resize(n: number): void {
+  resize(lines: number[]): void {
     const r = this.canvas.getBoundingClientRect();
     this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.canvas.width = Math.max(1, Math.round(r.width * this.dpr));
     this.canvas.height = Math.max(1, Math.round(r.height * this.dpr));
-    this.layout = computeLayout(Math.max(1, r.width), Math.max(1, r.height), n);
+    this.layout = computeLayout(Math.max(1, r.width), Math.max(1, r.height), lines);
   }
 
   addFlight(s: GameState, from: number, to: number | null, now: number): void {
+    if (einkOn) return;
     const l = this.layout;
     const a = l.stations[from]?.table;
     if (!a) return;
     const dest = to === null ? l.done : l.stations[to]!.pile;
-    const p = PRODUCTS[activeOrder(s)?.product ?? 'shorts']!;
+    const p = PRODUCTS[activeOrder(s, s.stations[from]?.line ?? 0)?.product ?? 'shorts']!;
     this.flights.push({ from: { x: a.x + a.w / 2, y: a.y + a.h / 2 }, to: { x: dest.x + dest.w / 2, y: dest.y + dest.h / 2 }, t0: now, fabric: p.fabric, tie: p.tie });
     if (this.flights.length > 40) this.flights.shift();
   }
 
   /** Workers drawn on the floor (mechanics are drawn as agents; absent workers are at home). */
   private floorWorkers(s: GameState): Worker[] {
-    return s.workers.filter((w) => w.role !== 'mechanic' && !w.absent);
+    return s.workers.filter((w) => w.role !== 'mechanic' && w.role !== 'leader' && w.role !== 'electrician' && !w.absent);
   }
 
   hitTest(s: GameState, x: number, y: number, frac: number): Hit {
@@ -144,7 +189,7 @@ export class Renderer {
     return spot(a.target);
   }
 
-  draw(s: GameState, view: ViewState, frac: number, timeMs: number): void {
+  draw(s: GameState, view: ViewState, frac: number, timeMs: number, overlay: Overlay = 'none'): void {
     const ctx = this.ctx;
     const l = this.layout;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -159,9 +204,11 @@ export class Renderer {
     this.zone(l.bench, 'Bench');
     this.drawCut(s);
     this.drawDone(s);
+    this.drawLines(s);
 
     const lunch = isLunch(s);
     for (const st of s.stations) this.drawStation(s, st, view, frac, timeMs, lunch);
+    if (overlay !== 'none') this.drawOverlay(s, overlay);
 
     const dur = 450;
     this.flights = this.flights.filter((f) => timeMs - f.t0 < dur);
@@ -174,6 +221,8 @@ export class Renderer {
 
     for (const w of this.floorWorkers(s)) this.drawWorker(s, w, view, frac, timeMs);
     s.agents.forEach((a, k) => this.drawAgent(s, a, k, frac, timeMs));
+    this.drawStaff(s);
+    this.drawWeather(s, timeMs);
 
     if (lunch && s.phase === 'shift') {
       ctx.fillStyle = 'rgba(243,234,215,0.55)';
@@ -182,6 +231,113 @@ export class Renderer {
       ctx.font = `bold ${Math.round(l.radius * 1.1)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText('Lunch · rice from the tin boxes', l.width / 2, l.height / 2);
+    }
+  }
+
+  /** Tint and label each line when there are several. */
+  private drawLines(s: GameState): void {
+    const ctx = this.ctx;
+    this.layout.lineRects.forEach((r, i) => {
+      if (!einkOn) {
+        ctx.fillStyle = i % 2 ? 'rgba(47,75,124,0.06)' : 'rgba(194,24,91,0.05)';
+        roundRect(ctx, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 8);
+        ctx.fill();
+      }
+      const o = activeOrder(s, i);
+      const label = `${s.lines[i]!.name}${o ? ` · ${PRODUCTS[o.product]!.plural} ${o.finished}/${o.qty}` : ' · idle'}`;
+      ctx.font = 'bold 10px system-ui, sans-serif';
+      const w = ctx.measureText(label).width + 10;
+      ctx.fillStyle = einkOn ? '#000' : i % 2 ? '#2f4b7c' : '#c2185b';
+      roundRect(ctx, r.x + 4, r.y + 1, w, 14, 7);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, r.x + 9, r.y + 12);
+    });
+  }
+
+  /** Line leaders stand by their line's label; electricians wait in the office. */
+  private drawStaff(s: GameState): void {
+    const r = this.layout.radius * 0.8;
+    s.workers.forEach((w) => {
+      if (w.absent) return;
+      if (w.role === 'leader') {
+        const line = s.lines.findIndex((l) => l.leaderId === w.id);
+        const rect = line >= 0 ? this.layout.lineRects[line] : undefined;
+        const p = rect ? { x: rect.x + rect.w - r - 4, y: rect.y + 8 } : officeSpot(this.layout, 1.4);
+        this.body(p.x, p.y, r, einkOn ? '#222' : '#6a1b9a', 'L', false);
+      } else if (w.role === 'electrician') {
+        const p = officeSpot(this.layout, 2);
+        this.body(p.x, p.y, r, einkOn ? '#222' : '#f9a825', 'E', false);
+      }
+    });
+  }
+
+  /** Rain streaks, power cut shade, generator badge. */
+  private drawWeather(s: GameState, timeMs: number): void {
+    const p = s.power;
+    if (!p) return;
+    const ctx = this.ctx;
+    const l = this.layout;
+    if (p.rain && !einkOn) {
+      ctx.strokeStyle = 'rgba(80,120,190,0.25)';
+      ctx.lineWidth = 1;
+      const off = (timeMs / 20) % 24;
+      for (let x = -40; x < l.width; x += 24) {
+        ctx.beginPath();
+        ctx.moveTo(x + off, 0);
+        ctx.lineTo(x + off + 10, 26);
+        ctx.stroke();
+      }
+    }
+    const closed = s.minute >= p.closedFrom && s.minute < p.closedUntil;
+    if ((p.off && !p.generator.running) || closed) {
+      ctx.fillStyle = einkOn ? 'rgba(0,0,0,0.25)' : 'rgba(10,15,30,0.45)';
+      ctx.fillRect(0, 0, l.width, l.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.round(l.radius * 1.1)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(closed ? 'Closed: everyone is helping in the flood' : p.generator.startAt > 0 ? 'Power cut · starting the generator…' : 'Power cut', l.width / 2, l.height / 2);
+    } else if (p.generator.running) {
+      ctx.font = 'bold 11px system-ui, sans-serif';
+      const label = 'Generator running';
+      const w = ctx.measureText(label).width + 12;
+      ctx.fillStyle = einkOn ? '#000' : '#f9a825';
+      roundRect(ctx, l.office.x + 4, l.office.y + l.office.h - 20, w, 16, 8);
+      ctx.fill();
+      ctx.fillStyle = einkOn ? '#fff' : '#2b2a26';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, l.office.x + 10, l.office.y + l.office.h - 8);
+    }
+  }
+
+  /** Bottleneck: red = the slowest operation of its line, green = spare capacity. Quality: defects made today. */
+  private drawOverlay(s: GameState, overlay: Overlay): void {
+    const ctx = this.ctx;
+    for (const st of s.stations) {
+      if (!st.opId || st.machine === 'cutting' || st.machine === 'qc') continue;
+      const cell = this.layout.stations[st.index]!.cell;
+      let colour = '';
+      let label = '';
+      if (overlay === 'bottleneck') {
+        const cap = opCapacities(s, st.line);
+        const neck = bottleneck(s, st.line);
+        if (!(st.opId in cap) || !neck) continue;
+        const ratio = cap[st.opId]! / Math.max(1, cap[neck]!);
+        colour = st.opId === neck ? 'rgba(192,57,43,0.35)' : ratio < 1.2 ? 'rgba(217,138,0,0.28)' : 'rgba(46,125,50,0.22)';
+        label = st.opId === neck ? 'SLOWEST' : `${Math.round(stationRate(s, st))}/h`;
+      } else {
+        const d = st.defects;
+        colour = d >= 6 ? 'rgba(192,57,43,0.35)' : d >= 2 ? 'rgba(217,138,0,0.28)' : 'rgba(46,125,50,0.18)';
+        label = `${d} defect${d === 1 ? '' : 's'}`;
+      }
+      ctx.fillStyle = einkOn ? 'rgba(0,0,0,0.12)' : colour;
+      roundRect(ctx, cell.x + 2, cell.y + 2, cell.w - 4, cell.h - 4, 8);
+      ctx.fill();
+      ctx.font = 'bold 10px system-ui, sans-serif';
+      ctx.fillStyle = C.ink;
+      ctx.textAlign = 'left';
+      ctx.fillText(label, cell.x + 6, cell.y + 11);
     }
   }
 
@@ -198,6 +354,21 @@ export class Renderer {
 
   private bundleRect(x: number, y: number, w: number, h: number, fabric: string, tie: string): void {
     const ctx = this.ctx;
+    if (einkOn) {
+      // pattern instead of colour: stripes for rework, hatch for everything else
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = -h; i < w; i += fabric === '#e57373' ? 3 : 5) {
+        ctx.moveTo(x + Math.max(0, i), y + Math.max(0, -i));
+        ctx.lineTo(x + Math.min(w, i + h), y + Math.min(h, h - (i + h - Math.min(w, i + h))));
+      }
+      ctx.stroke();
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      return;
+    }
     ctx.fillStyle = fabric;
     ctx.fillRect(x, y, w, h);
     ctx.fillStyle = tie;
@@ -236,7 +407,7 @@ export class Renderer {
       ctx.setLineDash([]);
     }
     if (n > 0) {
-      ctx.fillStyle = n >= 7 ? C.danger : n >= 4 ? '#8a5800' : C.muted;
+      ctx.fillStyle = n >= 7 ? C.danger : n >= 4 ? (einkOn ? C.ink : '#8a5800') : C.muted;
       ctx.font = `${n >= 4 ? 'bold ' : ''}10px system-ui, sans-serif`;
       ctx.textAlign = 'right';
       ctx.fillText(`${n >= 7 ? '!! ' : ''}${n}`, r.x + r.w, r.y + 9);
@@ -246,25 +417,33 @@ export class Renderer {
   private drawCut(s: GameState): void {
     const r = this.layout.cut;
     this.zone(r, 'Cut fabric');
-    const o = activeOrder(s);
+    const actives = s.lines.map((_, i) => activeOrder(s, i)).filter((x) => !!x);
+    const o = actives[0];
     const p = PRODUCTS[o?.product ?? 'shorts']!;
     const inner = { x: r.x + 6, y: r.y + 18, w: r.w - 12, h: r.h - 22 };
-    const cut = o?.cut ?? 0;
+    const cut = actives.reduce((a, x) => a + (x?.cut ?? 0), 0);
     const n = !o || !o.sampled ? 0 : Math.min(cut, 3 * Math.max(1, Math.floor((inner.h - 16) / 9)));
     for (let i = 0; i < n; i++) this.bundleRect(inner.x + (i % 3) * (inner.w / 3), inner.y + inner.h - 9 * (Math.floor(i / 3) + 1), inner.w / 3 - 2, 8, p.fabric, p.tie);
     const ctx = this.ctx;
     ctx.fillStyle = C.ink;
     ctx.font = 'bold 12px system-ui, sans-serif';
     ctx.textAlign = 'left';
+    const rolls = s.warehouse.filter((x) => !x.rejected && x.metres > 0).length;
     ctx.fillText(o ? (o.sampled ? `${cut} bundles` : 'Sample first') : 'No order', r.x + 6, r.y + 28);
+    if (has(s, 'sourcing') && r.h > 50) {
+      ctx.font = '10px system-ui, sans-serif';
+      ctx.fillStyle = C.muted;
+      ctx.fillText(`${rolls} rolls in store${s.pallets ? ' · pallets' : ''}`, r.x + 6, r.y + 41);
+    }
   }
 
   private drawDone(s: GameState): void {
     const r = this.layout.done;
     this.zone(r, 'Packed');
     const ctx = this.ctx;
-    const o = activeOrder(s);
-    const finished = o?.finished ?? 0;
+    const actives = s.lines.map((_, i) => activeOrder(s, i));
+    const o = actives[0];
+    const finished = actives.reduce((a, x) => a + (x?.finished ?? 0), 0);
     const cartons = Math.floor(finished / 50);
     const cw = Math.min(24, r.w / 8);
     const portrait = this.layout.portrait;
@@ -282,7 +461,12 @@ export class Renderer {
     ctx.fillStyle = C.ink;
     ctx.font = 'bold 13px system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(o ? `${finished} / ${o.qty}` : '—', r.x + 6, r.y + 30);
+    if (s.lines.length > 1) {
+      ctx.font = 'bold 11px system-ui, sans-serif';
+      const parts = actives.map((x, i) => `${s.lines[i]!.name.slice(-1)} ${x ? `${Math.min(x.finished, x.qty)}/${x.qty}` : '—'}`);
+      if (this.layout.portrait) ctx.fillText(parts.join(' · '), r.x + 6, r.y + 30);
+      else parts.forEach((t, i) => ctx.fillText(t, r.x + 6, r.y + 28 + i * 13));
+    } else ctx.fillText(o ? `${Math.min(finished, o.qty)} / ${o.qty}` : '—', r.x + 6, r.y + 30);
   }
 
   private drawStation(s: GameState, st: Station, view: ViewState, frac: number, timeMs: number, lunch: boolean): void {
@@ -300,7 +484,7 @@ export class Renderer {
     this.drawPile(s, cell.pile, st.pile);
 
     const t = cell.table;
-    ctx.fillStyle = st.machine === 'qc' ? '#e9e3d0' : C.table;
+    ctx.fillStyle = st.machine === 'qc' ? (einkOn ? '#ffffff' : '#e9e3d0') : C.table;
     roundRect(ctx, t.x, t.y, t.w, t.h, 5);
     ctx.fill();
     ctx.strokeStyle = C.tableEdge;
@@ -312,7 +496,26 @@ export class Renderer {
     const mx = cell.horizontal ? t.x + t.w * 0.06 : t.x + (t.w - mw) / 2;
     const my = cell.horizontal ? t.y + (t.h - mh) / 2 : t.y + t.h * 0.08;
     const working = isWorking(s, st);
-    if (st.machine === 'qc') {
+    if (st.machine === 'cutting') {
+      // cutting table: a fabric roll and scissors
+      ctx.fillStyle = einkOn ? '#bbb' : '#9fb3c8';
+      ctx.fillRect(mx, my + mh * 0.2, mw * 0.55, mh * 0.5);
+      ctx.fillStyle = einkOn ? '#888' : '#7d93ab';
+      ctx.beginPath();
+      ctx.ellipse(mx + mw * 0.55, my + mh * 0.45, mh * 0.12, mh * 0.25, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = C.ink;
+      ctx.lineWidth = 2;
+      const sx = mx + mw * 0.8;
+      const sy = my + mh * 0.45;
+      const snip = working && !einkOn ? Math.sin(timeMs / 90) * 0.25 : 0.2;
+      ctx.beginPath();
+      ctx.moveTo(sx - 8, sy - 6 * snip - 2);
+      ctx.lineTo(sx + 6, sy + 2);
+      ctx.moveTo(sx - 8, sy + 6 * snip + 2);
+      ctx.lineTo(sx + 6, sy - 2);
+      ctx.stroke();
+    } else if (st.machine === 'qc') {
       // QC table: a lamp and a magnifier
       ctx.strokeStyle = C.ink;
       ctx.lineWidth = 2;
@@ -341,7 +544,7 @@ export class Renderer {
         ctx.fillRect(mx + mw * 0.15, my + mh * 0.6, mw * 0.3, mh * 0.12);
       }
       const nx = mx + mw * 0.2;
-      const bob = working ? Math.abs(Math.sin(timeMs / 70 + st.index)) * mh * 0.25 : 0;
+      const bob = working && !einkOn ? Math.abs(Math.sin(timeMs / 70 + st.index)) * mh * 0.25 : 0;
       ctx.strokeStyle = '#ddd';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -397,8 +600,11 @@ export class Renderer {
     ctx.fillText(fit(ctx, opName, lb.w), lb.x, lb.y + 12);
     ctx.font = `${big ? 11 : 10}px system-ui, sans-serif`;
     const w = workerById(s, st.workerId);
-    let status: string;
-    if (st.broken) status = s.agents.some((a) => a.target === st.index) || s.repairQueue.includes(st.index) ? 'Being fixed' : 'Broken: tap';
+    let status = '';
+    if (st.machine === 'cutting') {
+      const cw = workerById(s, st.workerId);
+      status = !cw ? 'Nobody here' : st.current ? `${cw.name} cutting` : `${cw.name} · no fabric`;
+    } else if (st.broken) status = s.agents.some((a) => a.target === st.index) || s.repairQueue.includes(st.index) ? 'Being fixed' : 'Broken: tap';
     else if (st.serviceUntil > s.minute) status = 'New needle';
     else if (st.opId === null) status = 'Tap: set a job';
     else if (!w) status = 'Nobody here';
@@ -461,7 +667,7 @@ export class Renderer {
       ctx.beginPath();
       ctx.arc(p.x, p.y, r + 3, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.strokeStyle = eff >= 0.8 ? '#2e7d32' : eff >= 0.6 ? C.warn : C.danger;
+      ctx.strokeStyle = einkOn ? C.ink : eff >= 0.8 ? '#2e7d32' : eff >= 0.6 ? C.warn : C.danger;
       ctx.beginPath();
       ctx.arc(p.x, p.y, r + 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, eff));
       ctx.stroke();
@@ -517,7 +723,8 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function fit(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
+function fit(ctx: CanvasRenderingContext2D, raw: string, maxW: number): string {
+  const text = tr(raw); // translate first, then truncate
   if (ctx.measureText(text).width <= maxW) return text;
   let t = text;
   while (t.length > 1 && ctx.measureText(`${t}…`).width > maxW) t = t.slice(0, -1);

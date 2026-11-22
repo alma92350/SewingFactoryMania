@@ -28,6 +28,8 @@ export interface Layout {
   done: Rect;
   bench: Rect;
   office: Rect;
+  /** Region of each line when there are several (for tint and labels). */
+  lineRects: Rect[];
 }
 
 const PAD = 8;
@@ -50,52 +52,66 @@ function stationCell(cell: Rect): StationCell {
   return { cell, pile, table, label, horizontal, seat: { x: table.x + table.w * 0.5, y: table.y + table.h * 0.72 } };
 }
 
-export function computeLayout(width: number, height: number, n: number): Layout {
+/**
+ * `lines` holds the number of stations on each line, in station order.
+ * One line: portrait uses two columns above 8 machines, landscape two rows above 10.
+ * Two lines: one column (portrait) or one row (landscape) per line.
+ */
+export function computeLayout(width: number, height: number, lines: number[]): Layout {
   const portrait = height >= width * 0.9;
+  const n = lines.reduce((a, b) => a + b, 0);
   const stations: StationCell[] = [];
+  const lineRects: Rect[] = [];
   let cut: Rect;
   let done: Rect;
   let bench: Rect;
   let office: Rect;
   const W = width - 2 * PAD;
   const H = height - 2 * PAD;
+  const multi = lines.length > 1;
+  // slot (group, position) of every station
+  const slots: { g: number; k: number }[] = [];
+  let groups: number;
+  let perGroup: number;
+  if (multi) {
+    groups = lines.length;
+    perGroup = Math.max(...lines);
+    lines.forEach((count, g) => {
+      for (let k = 0; k < count; k++) slots.push({ g, k });
+    });
+  } else {
+    groups = portrait ? (n > 8 ? 2 : 1) : n > 10 ? 2 : 1;
+    perGroup = Math.ceil(n / groups);
+    for (let i = 0; i < n; i++) slots.push({ g: Math.floor(i / perGroup), k: i % perGroup });
+  }
 
+  const band = multi ? 16 : 0; // header band for line names
   if (portrait) {
-    const cols = n > 8 ? 2 : 1;
-    const perCol = Math.ceil(n / cols);
-    const rows = perCol + 2;
-    const rowH = Math.min(96, H / rows);
-    const top = PAD + Math.max(0, (H - rowH * rows) / 2);
+    const rows = perGroup + 2;
+    const rowH = Math.min(96, (H - band) / rows);
+    const top = PAD + Math.max(0, (H - band - rowH * rows) / 2);
     office = { x: PAD, y: top, w: W * 0.2, h: rowH };
     cut = { x: PAD + W * 0.21, y: top, w: W * 0.24, h: rowH };
     bench = { x: PAD + W * 0.46, y: top, w: W * 0.54, h: rowH };
-    const colW = W / cols;
-    for (let i = 0; i < n; i++) {
-      const c = Math.floor(i / perCol);
-      const r = i % perCol;
-      stations.push(stationCell({ x: PAD + c * colW, y: top + rowH * (r + 1), w: colW, h: rowH }));
-    }
-    done = { x: PAD, y: top + rowH * (perCol + 1), w: W, h: rowH };
+    const colW = W / groups;
+    for (const { g, k } of slots) stations.push(stationCell({ x: PAD + g * colW, y: top + band + rowH * (k + 1), w: colW, h: rowH }));
+    for (let g = 0; g < (multi ? groups : 0); g++) lineRects.push({ x: PAD + g * colW, y: top + rowH, w: colW, h: band + rowH * perGroup });
+    done = { x: PAD, y: top + band + rowH * (perGroup + 1), w: W, h: rowH };
   } else {
-    const rows = n > 10 ? 2 : 1;
-    const perRow = Math.ceil(n / rows);
-    const cols = perRow + 2;
+    const cols = perGroup + 2;
     const colW = W / cols;
     const lineH = H * 0.74;
-    const rowH = lineH / rows;
+    const rowH = lineH / groups;
     cut = inset({ x: PAD, y: PAD, w: colW, h: lineH }, 3);
-    for (let i = 0; i < n; i++) {
-      const r = Math.floor(i / perRow);
-      const c = i % perRow;
-      stations.push(stationCell({ x: PAD + colW * (c + 1), y: PAD + r * rowH, w: colW, h: rowH }));
-    }
+    for (const { g, k } of slots) stations.push(stationCell({ x: PAD + colW * (k + 1), y: PAD + g * rowH + band, w: colW, h: rowH - band }));
+    for (let g = 0; g < (multi ? groups : 0); g++) lineRects.push({ x: PAD + colW, y: PAD + g * rowH, w: colW * perGroup, h: rowH });
     done = inset({ x: PAD + colW * (cols - 1), y: PAD, w: colW, h: lineH }, 3);
     office = inset({ x: PAD, y: PAD + lineH, w: colW * 2, h: H - lineH }, 3);
     bench = inset({ x: PAD + colW * 2, y: PAD + lineH, w: colW * (cols - 2), h: H - lineH }, 3);
   }
   const t = stations[0]!.table;
-  const radius = Math.max(9, Math.min(20, Math.min(t.w, t.h) * 0.3));
-  return { portrait, width, height, radius, stations, cut, done, bench, office };
+  const radius = Math.max(8, Math.min(20, Math.min(t.w, t.h) * 0.3));
+  return { portrait, width, height, radius, stations, cut, done, bench, office, lineRects };
 }
 
 export function benchSlot(l: Layout, i: number, n: number): { x: number; y: number } {

@@ -135,3 +135,43 @@ ul.goals li { padding: 2px 0; }
 .card.game svg { width: 100%; height: auto; display: block; }
 .timer { height: 8px; background: #e9e0cc; border-radius: 4px; overflow: hidden; margin: 8px 0; }
 .timer div { height: 100%; width: 100%; background: #e8a33c; }
+
+/* ── Phase 2 ─────────────────────────────────────────── */
+#topbar .power { display: flex; gap: 6px; align-items: center; font-weight: 600; }
+#topbar .power .off { background: #c0392b; color: #fff; border-radius: 6px; padding: 1px 6px; font-size: 12px; }
+#topbar .power .gen { background: #f9a825; color: #2b2a26; border-radius: 6px; padding: 1px 6px; font-size: 12px; }
+.overlay-btn { position: absolute; bottom: 8px; right: 8px; min-height: 40px; min-width: 44px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+.overlay-btn[hidden] { display: none; }
+.supplier { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 0; border-top: 1px dashed var(--line); }
+.supplier .mini { flex-shrink: 0; }
+.fi { display: flex; gap: 12px; justify-content: center; }
+.fi figure { margin: 0; text-align: center; }
+.fi figcaption { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.swatch { width: 120px; height: 120px; border-radius: 12px; border: 2px solid #2b2a26; position: relative; display: block; }
+.swatch.roll { cursor: pointer; padding: 0; touch-action: manipulation; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0 4px, transparent 4px 8px); }
+.swatch.roll.flagged { outline: 5px solid #e8c547; outline-offset: 3px; }
+.swatch.roll.flagged::after { content: '✕'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 56px; color: rgba(255,255,255,0.85); }
+.flaw { position: absolute; width: 16px; height: 12px; border-radius: 50%; background: rgba(20,20,20,0.75); }
+.flaw.small { width: 8px; height: 8px; background: rgba(120,90,40,0.8); }
+.card.marker .mwrap { display: flex; gap: 12px; align-items: flex-start; }
+.mgrid { display: grid; gap: 2px; width: min(200px, 48vw); background: repeating-linear-gradient(0deg, #cfd8e3 0 2px, transparent 2px 44px), #e3e9f1; padding: 2px; border-radius: 6px; flex-shrink: 0; }
+.mcell { aspect-ratio: 1 / 1; min-height: 44px; border: 1px dashed rgba(0,0,0,0.15); background: rgba(255,255,255,0.6); border-radius: 3px; padding: 0; cursor: pointer; }
+.mcell.on { border: 1px solid rgba(0,0,0,0.4); }
+.mside { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mpal { display: flex; flex-wrap: wrap; gap: 6px; }
+.card .mpiece { min-height: 44px; padding: 4px 10px; }
+.mpiece.sel { border-color: var(--accent) !important; background: #dff1e8 !important; font-weight: 700; }
+.mpiece.used { opacity: 0.5; text-decoration: line-through; }
+
+/* e-ink: monochrome, no motion, bigger targets */
+body.eink { --bg: #ffffff; --surface: #ffffff; --ink: #000000; --muted: #333333; --accent: #000000; --line: #000000; --bad: #000000; --ok: #000000; --top: #ffffff; --top-ink: #000000; }
+body.eink #topbar { border-bottom: 2px solid #000; }
+body.eink #topbar .ok, body.eink #topbar .bad, body.eink .stars { color: #000 !important; }
+body.eink .bad { text-decoration: underline; }
+body.eink .toast { background: #fff; color: #000; border: 2px solid #000; }
+body.eink .card { box-shadow: none; border: 2px solid #000; }
+body.eink button.primary { background: #000 !important; color: #fff !important; }
+body.eink .badge { background: #000; }
+body.eink * { animation: none !important; transition: none !important; }
+body.eink .notebook { background: #fff; border-left: 2px solid #000; }
+body.eink .stamp { color: #000 !important; }
