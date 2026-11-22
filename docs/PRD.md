@@ -687,3 +687,34 @@ Scenario editor and share codes; multiple factories (Saigon + Hà Nội); a dome
 | D13 | Family storyline: yes, 1–2 scenes per chapter, every choice has a visible game effect, all paths winnable (§11.1) |
 | D14 | Hong Kong buyers early (trial CMT in Ch1, FOB from Ch3); mainland China overflow late (Ch6) |
 | D15 | No real-interview "stories" page; Handbook stays game terms and fictional characters |
+
+---
+
+## Phase 0 results (build 0.0.1, "Paper Pattern")
+
+**Shipped:** one shift (07:00–16:30, lunch 11:30–12:00) of Cô Mai's school shorts. One line of 7 machines (5 lockstitch, 2 overlock; 6 operations + 1 spare), 7 seamstresses with skills per machine type and a per-operation learning curve (50% → 100%, +2 points per piece; 85% on yesterday's operation). Bundles of 10 flow down the line; piles show the bottleneck (dashed amber ≥ 4 bundles, solid red ≥ 7). Needle breakdowns (wear-driven) are fixed by the director, who walks to the machine. Assign by tap (swap if occupied); any machine can be retargeted to an operation of its type. Placeholder rhythm audio (one percussion pattern per working station), mentor tips (Bác Tư), notebook shift report, date-seeded day with `?seed=`. Deployed to GitHub Pages on every push.
+
+**Measured with the bot** (Sysadmin-equivalent default, 12–16 seeds):
+
+| Player | Pieces (avg) | Range | Notes |
+|---|---:|---|---|
+| Does nothing | ≈ 95 | 30–190 | Lan stays on the bench, spare idle, broken machines stay broken |
+| Autopilot (competent) | ≈ 310 | 300–350 | Fixes, seats the bench, points the spare at the bottleneck |
+| Smart opening (Lan + Hương both on pockets) | ≈ 350 | 340–360 | One good insight at 07:00 |
+| Best possible seating (brute force, 5,040 × 4 plans) | ≈ 400 | — | Ceiling, no walking cost |
+
+Stars set from these: ★ 290 · ★★ 340 · ★★★ 370. Breakdowns average ≈ 3 per shift (1–8). One shift = 6.3 real minutes at 1×. Bundle 12 KB gzipped JS.
+
+**Exit criteria status**
+
+| Criterion | Status |
+|---|---|
+| Sim deterministic across seeds | ✅ tested (JSON round trip mid-shift continues identically) |
+| Line output = bottleneck | ✅ property test (±7%) |
+| Bot passes, doing nothing fails, ★★★ not free | ✅ tested on 16 seeds |
+| Shift 6–8 min; no 90 s stretch with nothing moving | ✅ tested |
+| Plays on desktop and phone without errors | ✅ Playwright smoke (1280×800 and Pixel 5) |
+| 60 fps on a throttled phone | ⏳ to measure (port DCM's `perf-probe.mjs`) |
+| 5-person phone playtest: ≥ 4/5 "wanted to fix the line"; bottleneck found in < 5 s | ⏳ needs humans |
+
+**Next:** run the playtest, then decide whether moving people mid-shift (and losing the learning) feels like a good trade-off or like a punishment, before Phase 1 builds on it.

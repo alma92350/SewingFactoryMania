@@ -1,0 +1,20 @@
+{
+  "name": "sewingfactorymania",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "A 1990s Saigon sewing factory management game for desktop and mobile browsers.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "e2e": "npm run build && node e2e/smoke.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vitest": "3.2.4"
+  }
+}
