@@ -75,6 +75,19 @@ export interface Agent {
 export interface Line {
   name: string;
   activeOrderId: number | null;
+  /** Line leader (a worker with role "leader") who balances this line. */
+  leaderId: string | null;
+}
+
+export interface PowerState {
+  off: boolean;
+  rain: boolean;
+  cuts: { start: number; end: number }[];
+  generator: { running: boolean; startAt: number; tested: boolean };
+  /** Everything stops between these minutes (the flood afternoon). */
+  closedFrom: number;
+  closedUntil: number;
+  minutesLost: number;
 }
 
 export type RollCondition = 'good' | 'flawed' | 'offShade';
@@ -235,6 +248,7 @@ export interface GameState {
   /** Family loan to repay at the end of the chapter. */
   loan: number;
   pallets: boolean;
+  power: PowerState | null;
   workers: Worker[];
   agents: Agent[];
   repairQueue: number[];

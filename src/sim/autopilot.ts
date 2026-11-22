@@ -1,19 +1,9 @@
 import { applyCommand } from './commands';
+import { coverEmptySteps, leaderPresent, rebalance, seatBench } from './leader';
+export { coverEmptySteps, rebalance } from './leader';
 import { rollsToBuy } from './sourcing';
 import { SUPPLIERS } from '../data/suppliers';
-import {
-  activeOrder,
-  bottleneck,
-  dailyWages,
-  has,
-  lineRate,
-  opCapacities,
-  opDef,
-  orderById,
-  projectedFinishDay,
-  stationRate,
-  workMinutesPerDay,
-} from './selectors';
+import { activeOrder, dailyWages, has, lineRate, orderById, projectedFinishDay, workMinutesPerDay } from './selectors';
 import type { GameState } from './types';
 
 export interface BotConfig {
@@ -41,28 +31,20 @@ export function makeBot(cfg: BotConfig = {}) {
 
     if (has(s, 'hiring') && cfg.hire !== false) hireIfNeeded(s, act);
 
-    // seat whoever is on the bench
-    for (const w of s.workers) {
-      if (w.station !== null || w.absent || w.role === 'mechanic' || w.arriveAt > s.minute) continue;
-      const special = w.role === 'qc' ? 'qc' : w.role === 'cutter' ? 'cutting' : null;
-      if (special) {
-        const st = s.stations.find((x) => x.machine === special && x.workerId === null);
-        if (st) act(applyCommand(s, { type: 'assign', workerId: w.id, station: st.index }));
-        continue;
-      }
-      if (w.role !== 'operator') continue;
-      const empty = s.stations
-        .filter((st) => st.workerId === null && st.opId !== null && st.machine !== 'qc')
-        .sort((a, b) => b.pile.length - a.pile.length)[0];
-      if (empty) act(applyCommand(s, { type: 'assign', workerId: w.id, station: empty.index }));
-    }
+    // leaders seat the bench on their own lines; the player only seats for unled lines
+    const allLed = s.lines.every((l, i) => l.leaderId && leaderPresent(s, i));
+    if (!allLed) seatBench(s, act, null);
 
-    s.lines.forEach((_, line) => {
+    // lines with a leader balance themselves (that is the point of hiring one)
+    s.lines.forEach((l, line) => {
+      if (l.leaderId && leaderPresent(s, line)) return;
       coverEmptySteps(s, act, line);
       if (s.minute % 60 === 0) rebalance(s, act, line);
     });
+    if (has(s, 'leaders')) assignLeaders(s, act);
 
     if (has(s, 'sourcing') && s.minute % 30 === 0) buyFabricIfNeeded(s, act);
+    if (has(s, 'power') && !s.pallets && s.cash > s.tuning.palletsCost + dailyWages(s) * 2) act(applyCommand(s, { type: 'pallets' }));
 
     const o = activeOrder(s);
     if (o && has(s, 'orders') && s.minute === 15 * 60 && !s.overtime) {
@@ -98,6 +80,8 @@ export function answer(s: GameState, id: number, cfg: BotConfig = {}): string {
       return 'auto';
     case 'fabric':
       return 'cutter';
+    case 'power':
+      return 'start';
     default:
       return d.options[0]!.id;
   }
@@ -113,9 +97,18 @@ function hireIfNeeded(s: GameState, act: (r: { ok: boolean }) => number): void {
     const m = pickBest('mechanic');
     if (m && budget > m.wage * 3) act(applyCommand(s, { type: 'hire', applicant: m.id }));
   }
-  if (has(s, 'quality') && !s.workers.some((w) => w.role === 'qc')) {
+  const qcTables = s.stations.filter((st) => st.machine === 'qc').length;
+  if (has(s, 'quality') && s.workers.filter((w) => w.role === 'qc').length < qcTables) {
     const q = pickBest('qc');
     if (q && budget > q.wage * 3) act(applyCommand(s, { type: 'hire', applicant: q.id }));
+  }
+  if (has(s, 'power') && !s.workers.some((w) => w.role === 'electrician')) {
+    const e = pickBest('electrician');
+    if (e && budget > e.wage * 3) act(applyCommand(s, { type: 'hire', applicant: e.id }));
+  }
+  if (has(s, 'leaders') && s.workers.filter((w) => w.role === 'leader').length < s.lines.length) {
+    const l = pickBest('leader');
+    if (l && budget > l.wage * 3) act(applyCommand(s, { type: 'hire', applicant: l.id }));
   }
   if (has(s, 'cutting') && !s.workers.some((w) => w.role === 'cutter')) {
     const c = pickBest('cutter');
@@ -135,7 +128,7 @@ function buyFabricIfNeeded(s: GameState, act: (r: { ok: boolean }) => number): v
     const supplier = o.dueDay - s.day >= 7 ? 'daegu' : 'binhminh';
     const reserve = (dailyWages(s) + 20) * 2;
     const price = SUPPLIERS[supplier]!.price;
-    for (let n = need + 2; n >= 1; n--) {
+    for (let n = need + 4; n >= 1; n--) {
       if (s.cash - n * price < reserve) continue;
       if (applyCommand(s, { type: 'buy', supplier, orderId: o.id, rolls: n }).ok) {
         act({ ok: true });
@@ -145,38 +138,12 @@ function buyFabricIfNeeded(s: GameState, act: (r: { ok: boolean }) => number): v
   }
 }
 
-/** A step with no staffed machine stops the whole line: move someone from a doubled-up step. */
-export function coverEmptySteps(s: GameState, act: (r: { ok: boolean }) => number, line = 0): void {
-  const staffed = (opId: string) => s.stations.filter((st) => st.line === line && st.opId === opId && st.workerId !== null);
-  for (const opId of Object.keys(opCapacities(s, line))) {
-    if (staffed(opId).length > 0) continue;
-    const empty = s.stations.find((st) => st.line === line && st.opId === opId && st.workerId === null);
-    if (!empty) continue;
-    const donor = s.stations.find(
-      (st) => st.line === line && st.machine === empty.machine && st.opId !== null && st.opId !== opId && staffed(st.opId).length >= 2 && st.workerId !== null,
-    );
-    if (donor) act(applyCommand(s, { type: 'assign', workerId: donor.workerId!, station: empty.index }));
-  }
-}
 
-/** Point a machine with spare capacity at the bottleneck (same machine type only). */
-export function rebalance(s: GameState, act: (r: { ok: boolean }) => number, line = 0): void {
-  const neck = bottleneck(s, line);
-  if (!neck) return;
-  const cap = opCapacities(s, line);
-  const machine = opDef(neck).machine;
-  const idle = s.stations.find((st) => st.line === line && st.machine === machine && st.opId === null);
-  if (idle) {
-    act(applyCommand(s, { type: 'setOp', station: idle.index, opId: neck }));
-    return;
+/** Give every unled line a leader from the team. */
+function assignLeaders(s: GameState, act: (r: { ok: boolean }) => number): void {
+  for (const w of s.workers) {
+    if (w.role !== 'leader' || s.lines.some((l) => l.leaderId === w.id)) continue;
+    const free = s.lines.findIndex((l) => !l.leaderId);
+    if (free >= 0) act(applyCommand(s, { type: 'lead', workerId: w.id, line: free }));
   }
-  let best: { index: number; spare: number } | null = null;
-  for (const st of s.stations) {
-    if (st.line !== line || st.machine !== machine || st.opId === null || st.opId === neck || !(st.opId in cap)) continue;
-    const others = s.stations.filter((x) => x.line === line && x.opId === st.opId).length;
-    if (others < 2) continue;
-    const spare = cap[st.opId]! - stationRate(s, st) - cap[neck]! * 1.15;
-    if (spare > 0 && (!best || spare > best.spare)) best = { index: st.index, spare };
-  }
-  if (best) act(applyCommand(s, { type: 'setOp', station: best.index, opId: neck }));
 }

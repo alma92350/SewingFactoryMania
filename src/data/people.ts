@@ -54,6 +54,17 @@ export const CREW: Record<string, PersonDef> = {
   ngan: { id: 'ngan', name: 'Ngân', role: 'operator', skill: sk(0.6, 0.85), traits: ['radio'], wage: 1.4, familiar: ['shorts.elastic'], note: 'Sings with the radio.' },
   trang: { id: 'trang', name: 'Trang', role: 'operator', skill: sk(0.8, 0.65, 0.8), traits: ['tireless'], wage: 1.5, familiar: ['shorts.hem'], note: 'Never misses a day.' },
   lan: { id: 'lan', name: 'Lan', role: 'operator', skill: sk(1.0, 0.75, 0.7, 0.7), traits: ['oldHand'], wage: 1.8, familiar: ['shorts.pocket'], note: '14 years on the line. Pockets are her speciality.' },
+  // veterans hired in earlier chapters (Chapter 4 starts with them)
+  bich: { id: 'bich', name: 'Bích', role: 'operator', skill: sk(0.8, 0.7, 0.6), traits: [], wage: 1.6, familiar: ['shirt.collar'], note: 'Joined for the first Hanil order.' },
+  cuc: { id: 'cuc', name: 'Cúc', role: 'operator', skill: sk(0.7, 0.85, 0.6), traits: ['careful'], wage: 1.6, familiar: ['shirt.sleeves'], note: 'Her aunt taught her the overlock.' },
+  dung: { id: 'dung', name: 'Dung', role: 'operator', skill: sk(0.85, 0.6, 0.7), traits: ['fastLoose'], wage: 1.6, familiar: ['polo.placket'], note: 'Fast, sometimes too fast.' },
+  giang: { id: 'giang', name: 'Giang', role: 'operator', skill: sk(0.75, 0.75, 0.75), traits: [], wage: 1.5, familiar: [], note: 'From Long An, saving for a Honda Cub.' },
+  hanh: { id: 'hanh', name: 'Hạnh', role: 'operator', skill: sk(0.8, 0.65, 0.65), traits: ['tireless'], wage: 1.5, familiar: ['workwear.pockets'], note: 'Sewed the shipyard jackets.' },
+  kim: { id: 'kim', name: 'Kim', role: 'operator', skill: sk(0.7, 0.8, 0.6), traits: ['radio'], wage: 1.5, familiar: [], note: 'Knows every song on Radio Saigon.' },
+  phuong: { id: 'phuong', name: 'Phượng', role: 'operator', skill: sk(0.75, 0.8, 0.8), traits: [], wage: 1.5, familiar: [], note: 'Came with her sister from Bến Tre.' },
+  van: { id: 'van', name: 'Vân', role: 'operator', skill: sk(0.85, 0.6, 0.7), traits: ['quickLearner'], wage: 1.5, familiar: [], note: 'Studies accounting at night.' },
+  tam: { id: 'tam', name: 'Tâm', role: 'cutter', skill: { ...sk(0.5, 0.5, 0.5, 0.4), cutting: 0.92 }, traits: [], wage: 1.8, familiar: [], note: 'Never wastes a centimetre of fabric.' },
+  thu: { id: 'thu', name: 'Thu', role: 'qc', skill: { ...sk(0.5, 0.5, 0.5, 0.9) }, traits: ['careful'], wage: 1.7, familiar: ['qc'], note: 'Passed Mr. Watanabe’s inspection twice.' },
   ut: { id: 'ut', name: 'Út', role: 'operator', skill: sk(0.6, 0.6, 0.6, 0.6), traits: ['quickLearner', 'radio'], wage: 0, familiar: [], note: 'Your youngest sibling. Family: no wage.' },
 };
 

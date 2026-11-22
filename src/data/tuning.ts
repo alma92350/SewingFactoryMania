@@ -56,6 +56,12 @@ export const TUNING = {
   cutterCatch: 0.6,
   flawedRisk: 0.08,
   palletsCost: 25,
+
+  /** Power and weather (Chapter 4). */
+  generatorStartMinutes: 8,
+  electricianStartMinutes: 3,
+  generatorFailUntested: 0.4,
+  fuelPerHour: 4,
 };
 
 export type Tuning = typeof TUNING;

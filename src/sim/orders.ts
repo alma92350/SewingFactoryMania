@@ -4,6 +4,7 @@ import { CREW } from '../data/people';
 import { PRODUCTS, type MachineType } from '../data/products';
 import { makeWorker } from './state';
 import { deliverBuyerFabric, inspectByCutter, rejectRolls, scrapForRecut } from './sourcing';
+import { generatorDecision } from './power';
 import { aqlPlan, chapterOf, has, inspectionLevel, orderById, orderValue } from './selectors';
 import type { Bundle, Decision, GameState, Order, SimEvent } from './types';
 
@@ -19,13 +20,21 @@ export interface NewOrder {
   fob?: boolean;
 }
 
-/** New orders go to an idle line, else to the line with the least work queued. */
-function pickLine(s: GameState): number {
-  const idle = s.lines.findIndex((l) => l.activeOrderId === null);
-  if (idle >= 0) return idle;
-  let best = 0;
+/** A line can make a product if it has every machine type the product needs. */
+export function lineCanMake(s: GameState, line: number, product: string): boolean {
+  const types = new Set(s.stations.filter((st) => st.line === line).map((st) => st.machine));
+  return PRODUCTS[product]!.ops.every((op) => types.has(op.machine));
+}
+
+/** New orders go to an idle capable line, else to the capable line with the least work queued. */
+function pickLine(s: GameState, product: string): number {
+  const capable = s.lines.map((_, i) => i).filter((i) => lineCanMake(s, i, product));
+  const pool = capable.length ? capable : [0];
+  const idle = pool.find((i) => s.lines[i]!.activeOrderId === null);
+  if (idle !== undefined) return idle;
+  let best = pool[0]!;
   let bestWork = Infinity;
-  s.lines.forEach((_, i) => {
+  pool.forEach((i) => {
     const work = s.orders.filter((o) => o.line === i && (o.status === 'active' || o.status === 'queued')).reduce((a, o) => a + o.qty - o.finished, 0);
     if (work < bestWork) {
       best = i;
@@ -45,7 +54,7 @@ export function createOrder(s: GameState, n: NewOrder): Order {
     price: n.price,
     dueDay: n.dueDay,
     originalDue: n.dueDay,
-    line: n.line ?? pickLine(s),
+    line: n.line ?? pickLine(s, n.product),
     mode: n.fob ? 'fob' : 'cmt',
     uncut: 0,
     markerEff: s.tuning.markerAuto,
@@ -363,8 +372,15 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
       createOrder(s, { tag: d.fax!.tag, buyer: d.fax!.buyer, product: d.fax!.product, qty: q.qty, price: q.price, dueDay: q.dueDay, sample: d.fax!.sample, fob: d.fax!.fob });
       break;
     }
+    case 'power':
+      generatorDecision(s, optionId);
+      break;
     case 'family':
       s.campaign[d.flag!] = optionId;
+      if (d.flag === 'ch4.flood' && optionId === 'help' && s.power) {
+        s.power.closedFrom = 13 * 60;
+        s.power.closedUntil = s.tuning.shiftEnd;
+      }
       if (d.flag === 'ch3.loan' && optionId === 'borrow') {
         s.cash += 300;
         s.loan = 330;

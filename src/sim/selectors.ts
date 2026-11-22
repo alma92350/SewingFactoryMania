@@ -3,6 +3,7 @@ import { CHAPTER_BY_ID, type SystemId } from '../data/chapters';
 import { TRAITS } from '../data/people';
 import { ALL_OPS, PRODUCTS, type OperationDef } from '../data/products';
 import type { GameState, Order, Station, Worker } from './types';
+import { powerStops } from './power';
 
 /** The bench sits beside the middle of the line, for walking distances. */
 export function benchPos(s: GameState): number {
@@ -89,7 +90,7 @@ export function stationEfficiency(s: GameState, st: Station): number {
 }
 
 export function stationStopped(s: GameState, st: Station): boolean {
-  return st.broken || st.serviceUntil > s.minute;
+  return st.broken || st.serviceUntil > s.minute || powerStops(s, st.machine);
 }
 
 /** Pieces per hour this station can make right now (0 if stopped, empty or walking). */

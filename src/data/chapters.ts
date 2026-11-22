@@ -29,7 +29,8 @@ export interface FaxDef {
 export type ScriptEvent =
   | { day: number; minute: number; kind: 'fax'; fax: FaxDef }
   | { day: number; minute: number; kind: 'absent'; worker: string; text: string }
-  | { day: number; minute: number; kind: 'change'; tag: string; addPct: number; text: string };
+  | { day: number; minute: number; kind: 'change'; tag: string; addPct: number; text: string }
+  | { day: number; minute: number; kind: 'flood'; text: string };
 
 export interface FamilyOption {
   id: string;
@@ -39,7 +40,8 @@ export interface FamilyOption {
 
 export interface FamilyScene {
   flag: string;
-  when: 'start' | 'end';
+  /** 'event': pushed by a script event (e.g. the flood). */
+  when: 'start' | 'end' | 'event';
   title: string;
   body: string;
   options: FamilyOption[];
@@ -67,6 +69,10 @@ export interface ChapterDef {
   startOrder?: { tag: string; buyer: string; product: string; qty: number; price: number; dueDay: number };
   script: ScriptEvent[];
   family?: FamilyScene;
+  /** Days with rain (power cuts are more frequent, the roof leaks). */
+  rainDays?: number[];
+  /** Applicants at the gate each morning (default from tuning). */
+  applicants?: number;
   /** Applicant roles available in this chapter. */
   applicantRoles: ('operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader')[];
 }
@@ -76,6 +82,7 @@ const O: MachineType = 'overlock';
 const B: MachineType = 'buttonhole';
 const Q: MachineType = 'qc';
 const C: MachineType = 'cutting';
+const T: MachineType = 'bartack';
 
 export const CHAPTERS: ChapterDef[] = [
   {
@@ -303,6 +310,91 @@ export const CHAPTERS: ChapterDef[] = [
       options: [
         { id: 'borrow', label: 'Borrow $300 from Má', effect: '+$300 now, −$330 at the end of the chapter' },
         { id: 'no', label: 'Keep Má’s savings safe', effect: 'Less cash to buy fabric early' },
+      ],
+    },
+  },
+  {
+    id: 'ch4',
+    index: 4,
+    name: 'Rain and Darkness',
+    year: 1994,
+    place: 'Two lines in the hall, rainy season',
+    intro:
+      'August 1994. The rain comes every afternoon and the power goes with it. You now run two lines: work jackets on line A, jeans for Mrs. Lin on line B. You cannot be everywhere: hire line leaders, keep the generator ready, and keep the fabric off the wet floor.',
+    days: 7,
+    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting', 'power', 'leaders'],
+    newSystems: ['power', 'leaders'],
+    stations: [],
+    lines: [
+      { name: 'Line A', stations: [C, L, L, L, L, L, L, O, O, O, B, Q] },
+      { name: 'Line B', stations: [L, L, L, L, L, L, O, O, O, B, T, Q] },
+    ],
+    crew: { linh: 1, lan: 2, hoa: 7, ngan: 8, huong: 3, thao: 4, trang: 5, tam: 0, thu: 11, bich: 12, cuc: 18, dung: 13, giang: 14, hanh: 6, kim: 19, phuong: 21, van: 15 },
+    cash: 700,
+    rent: 22,
+    applicants: 6,
+    rainDays: [2, 3, 4, 6],
+    starText: ['Ship Mrs. Lin’s jeans and Mr. Leung’s jackets on time', '…and finish with $2,200 or more', '…with under 60 minutes lost to power cuts, no overtime, Sakura-ya on time'],
+    applicantRoles: ['operator', 'mechanic', 'qc', 'cutter', 'electrician', 'leader'],
+    script: [
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'formosa',
+          buyer: 'formosa',
+          product: 'jeans',
+          text: 'Jeans for our Taipei shops, CMT: our denim arrives today. You did the shorts well. Mrs. Lin.',
+          optional: false,
+          options: [
+            { label: 'Small run', qty: 700, price: 11, dueDay: 5 },
+            { label: 'Shop run', qty: 900, price: 11.5, dueDay: 6 },
+            { label: 'Big run', qty: 1100, price: 11, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'golden',
+          buyer: 'golden',
+          product: 'workwear',
+          fob: true,
+          text: 'The shipyard wants more jackets. Same as last time, FOB. Mr. Leung.',
+          optional: false,
+          options: [
+            { label: 'Small lot', qty: 500, price: 19.5, dueDay: 5 },
+            { label: 'Shipyard lot', qty: 600, price: 21.5, dueDay: 7 },
+            { label: 'Big lot', qty: 900, price: 20, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 3,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'sakuraya',
+          buyer: 'sakuraya',
+          product: 'polo',
+          text: 'Reorder of the summer polo, same approved sample. Strict inspection as always. Watanabe.',
+          optional: true,
+          options: [{ label: 'Reorder', qty: 400, price: 12.5, dueDay: 7 }],
+        },
+      },
+      { day: 4, minute: 7 * 60, kind: 'flood', text: 'The street is under water. Trucks cannot reach the port today: every shipment in transit is a day late.' },
+    ],
+    family: {
+      flag: 'ch4.flood',
+      when: 'event',
+      title: 'Flood in the old street',
+      body: 'Má calls: the water is knee-high in the old street and the neighbours are carrying their sewing machines upstairs. Your workers have family there too.',
+      options: [
+        { id: 'help', label: 'Close the factory this afternoon and help', effect: 'Lose the afternoon; tomorrow two skilled neighbours ask for work' },
+        { id: 'keep', label: 'Keep the lines running', effect: 'No time lost' },
       ],
     },
   },

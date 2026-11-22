@@ -14,7 +14,9 @@ export function generateApplicants(s: GameState, firstMorning = false): Applican
   const out: Applicant[] = [];
   const wanted: Role[] = [];
   if (firstMorning) for (const r of roles) if (r !== 'operator') wanted.push(r);
-  while (wanted.length < s.tuning.applicants) wanted.push(rand(s.rng) < 0.75 || roles.length === 1 ? 'operator' : pick(s.rng, roles));
+  // specialists on the first morning come on top of the usual applicants
+  const count = (chapterOf(s).applicants ?? s.tuning.applicants) + (firstMorning ? wanted.length : 0);
+  while (wanted.length < count) wanted.push(rand(s.rng) < 0.75 || roles.length === 1 ? 'operator' : pick(s.rng, roles));
   for (const role of wanted) {
     let name = pick(s.rng, APPLICANT_NAMES);
     for (let i = 0; taken.has(name) && i < 20; i++) name = pick(s.rng, APPLICANT_NAMES);

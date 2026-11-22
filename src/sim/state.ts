@@ -5,6 +5,7 @@ import { CREW, type PersonDef } from '../data/people';
 import { ALL_OPS } from '../data/products';
 import { TUNING, type Tuning } from '../data/tuning';
 import { generateApplicants } from './people';
+import { planDay } from './power';
 import { createOrder, activateOrder, pushFamily } from './orders';
 import type { GameState, Station, Worker } from './types';
 
@@ -100,11 +101,14 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     shipments: [],
     loan: 0,
     pallets: false,
+    power: ch.systems.includes('power')
+      ? { off: false, rain: false, cuts: [], generator: { running: false, startAt: 0, tested: false }, closedFrom: 0, closedUntil: 0, minutesLost: 0 }
+      : null,
     workers,
     agents: [{ id: 'director', kind: 'director', target: null, task: null, pos: -1, leftAt: 0, arriveAt: 0, until: 0 }],
     repairQueue: [],
     orders: [],
-    lines: lineDefs.map((l) => ({ name: l.name, activeOrderId: null })),
+    lines: lineDefs.map((l) => ({ name: l.name, activeOrderId: null, leaderId: null })),
     nextId: 1,
     cash: Math.round(cash),
     ledger: emptyLedger(),
@@ -123,6 +127,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     activateOrder(s, o, ch.id === 'ch0' ? [0, 1, 2, null, 3, 4, 5] : undefined);
   }
   if (ch.systems.includes('hiring')) s.applicants = generateApplicants(s, true);
+  planDay(s);
   if (ch.index > 2 && campaign['ch2.ut'] === 'join') s.workers.push(makeWorker(CREW.ut!, tuning, null, tuning.shiftStart));
   if (ch.family && ch.family.when === 'start') pushFamily(s);
   return s;

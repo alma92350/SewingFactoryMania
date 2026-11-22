@@ -18,7 +18,8 @@ export type Command =
   | { type: 'buy'; supplier: string; orderId: number; rolls: number }
   | { type: 'marker'; decision: number; eff: number }
   | { type: 'fabricResult'; decision: number; rolls: number[] }
-  | { type: 'pallets' };
+  | { type: 'pallets' }
+  | { type: 'lead'; workerId: string; line: number | null };
 
 export type CommandResult = { ok: true; events: SimEvent[] } | { ok: false; error: string };
 
@@ -89,6 +90,15 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
       s.pallets = true;
       for (const r of s.warehouse) r.dry = true;
       return ok();
+    case 'lead': {
+      if (!has(s, 'leaders')) return no('No line leaders in this chapter.');
+      const w = workerById(s, c.workerId);
+      if (!w || w.role !== 'leader') return no('Only a line leader can lead a line.');
+      if (c.line !== null && !s.lines[c.line]) return no('Unknown line.');
+      for (const l of s.lines) if (l.leaderId === w.id) l.leaderId = null;
+      if (c.line !== null) s.lines[c.line]!.leaderId = w.id;
+      return ok();
+    }
     case 'sleep':
       if (s.phase !== 'report') return no('The shift is not over yet.');
       if (s.decisions.length) return no('Answer the open card first.');
@@ -101,7 +111,7 @@ function assign(s: GameState, workerId: string, station: number | null): Command
   const w = workerById(s, workerId);
   if (!w) return no('Unknown worker.');
   if (w.absent) return no(`${w.name} is not here today.`);
-  if (w.role === 'mechanic') return no('Mechanics fix machines; they do not sew.');
+  if (w.role === 'mechanic' || w.role === 'electrician' || w.role === 'leader') return no(`A ${w.role === 'leader' ? 'line leader' : w.role} does not sew.`);
   if (station === w.station) return no(`${w.name} is already there.`);
   if (station !== null && !s.stations[station]) return no('Unknown station.');
 
@@ -180,5 +190,6 @@ function letGo(s: GameState, workerId: string): CommandResult {
   s.ledger.wages += severance;
   s.workers = s.workers.filter((x) => x.id !== workerId);
   s.agents = s.agents.filter((a) => a.id !== workerId);
+  for (const l of s.lines) if (l.leaderId === workerId) l.leaderId = null;
   return ok();
 }

@@ -2,6 +2,8 @@ import { BUYERS } from '../data/buyers';
 import { PRODUCTS } from '../data/products';
 import { stepAgents } from './agents';
 import { stepShipments } from './sourcing';
+import { planDay, stepPower, tickPower } from './power';
+import { stepLeaders } from './leader';
 import { checkOrders, pushDecision, pushFamily, shipOrder } from './orders';
 import { generateApplicants } from './people';
 import { stepStation } from './production';
@@ -31,7 +33,10 @@ export function step(s: GameState): SimEvent[] {
   }
   if (s.minute === t.lunchEnd) events.push({ kind: 'lunch', start: false });
 
+  stepPower(s, events);
+  if (s.decisions.length > 0) return events;
   stepAgents(s, events);
+  stepLeaders(s);
   const lunch = isLunch(s);
   if (!lunch) {
     for (const st of s.stations) stepStation(s, st, events);
@@ -39,6 +44,7 @@ export function step(s: GameState): SimEvent[] {
     if (!actionable(s)) s.stats.quietMinutes += 1;
   }
 
+  tickPower(s);
   s.minute += 1;
   if (s.minute >= shiftEndMinute(s)) endShift(s, events);
   return events;
@@ -77,6 +83,10 @@ function fireScript(s: GameState, events: SimEvent[]): void {
       w.station = null;
       w.absent = true;
       events.push({ kind: 'note', text: e.text });
+    } else if (e.kind === 'flood') {
+      for (const sh of s.shipments) if (sh.status === 'transit') sh.arriveDay += 1;
+      events.push({ kind: 'note', text: e.text });
+      pushFamily(s);
     } else if (e.kind === 'change') {
       const o = s.orders.find((q) => q.tag === e.tag && (q.status === 'active' || q.status === 'queued'));
       if (!o) return;
@@ -170,6 +180,17 @@ export function endDay(s: GameState): void {
   }
   s.repairQueue = s.stations.filter((st) => st.broken && s.agents.some((a) => a.kind === 'mechanic')).map((st) => st.index);
   if (has(s, 'hiring')) s.applicants = generateApplicants(s);
+  if (s.campaign['ch4.flood'] === 'help' && !s.campaign['ch4.bonus']) {
+    // the neighbours you helped send their daughters to work for you
+    s.campaign['ch4.bonus'] = 'given';
+    for (const a of generateApplicants(s).slice(0, 2)) {
+      for (const k of Object.keys(a.skill) as (keyof typeof a.skill)[]) a.skill[k] = Math.min(1, Math.round((a.skill[k] + 0.25) * 100) / 100);
+      a.role = 'operator';
+      a.note = 'Her family thanks you for helping in the flood.';
+      s.applicants.unshift(a);
+    }
+  }
+  planDay(s);
 }
 
 /** Run until the chapter is done, calling `each` before every minute (the bot hooks in here). */
