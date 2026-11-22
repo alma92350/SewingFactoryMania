@@ -4,6 +4,15 @@ import type { GameState, Order } from './types';
 /** Chapter goals (★ / ★★ / ★★★). Each entry says whether that star is earned. */
 export function starChecks(s: GameState): [boolean, boolean, boolean] {
   const byTag = (tag: string): Order | undefined => s.orders.find((o) => o.tag === tag);
+  const ch = chapterOf(s);
+  if (ch.scoreStars) {
+    const n = s.orders.reduce((a, o) => a + o.finished, 0);
+    return [n >= ch.scoreStars[0], n >= ch.scoreStars[1], n >= ch.scoreStars[2]];
+  }
+  if (ch.generator) {
+    const days = s.history.length;
+    return [days >= 5, days >= 10, days >= 20];
+  }
   switch (s.chapterId) {
     case 'ch0': {
       const n = byTag('comai')?.finished ?? 0;

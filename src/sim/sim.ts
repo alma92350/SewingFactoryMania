@@ -6,7 +6,8 @@ import { planDay, stepPower, tickPower } from './power';
 import { stepLeaders } from './leader';
 import { officeWork } from './office';
 import { bonusCost, morningSickness, nightlyMorale, nightlyQuits, tetReturns } from './morale';
-import { checkOrders, pushDecision, pushFamily, pushFamily2, shipOrder } from './orders';
+import { checkOrders, lineCanMake, pushDecision, pushFamily, pushFamily2, shipOrder } from './orders';
+import { sandboxFaxOptions } from '../data/generated';
 import { generateApplicants } from './people';
 import { stepStation } from './production';
 import { actionable, chapterOf, dailyWages, has, isLunch, lineEfficiency, shiftEndMinute, workerById } from './selectors';
@@ -59,7 +60,25 @@ export function step(s: GameState): SimEvent[] {
 }
 
 function fireScript(s: GameState, events: SimEvent[]): void {
-  const script = chapterOf(s).script;
+  const ch = chapterOf(s);
+  if (ch.generator && s.minute === s.tuning.shiftStart && !s.firedEvents.includes(-s.day)) {
+    s.firedEvents.push(-s.day);
+    const products = Object.keys(PRODUCTS).filter((p) => s.lines.some((_, i) => lineCanMake(s, i, p)));
+    const g = sandboxFaxOptions(s.seed, s.day, products);
+    const fax = { tag: `sb${s.day}`, buyer: g.buyer, product: g.product, fob: g.fob, text: `${BUYERS[g.buyer]!.contact} has work for you.`, optional: true, options: g.options };
+    const d = pushDecision(s, {
+      kind: 'fax',
+      title: `Fax from ${BUYERS[g.buyer]!.name}`,
+      body: fax.text,
+      fax,
+      options: [
+        ...g.options.map((q, k) => ({ id: String(k), label: `${q.label}: ${q.qty.toLocaleString('en')} ${PRODUCTS[g.product]!.plural}`, detail: `$${q.price.toFixed(2)}/dozen · vessel on day ${q.dueDay} · $${Math.round((q.qty / 12) * q.price)}` })),
+        { id: 'decline', label: 'Decline politely' },
+      ],
+    });
+    events.push({ kind: 'decision', id: d.id });
+  }
+  const script = ch.script;
   script.forEach((e, i) => {
     if (s.firedEvents.includes(i) || e.day !== s.day || e.minute > s.minute) return;
     s.firedEvents.push(i);

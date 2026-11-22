@@ -97,6 +97,12 @@ export interface ChapterDef {
   tetDay?: number;
   /** Line leaders already in place at the start: worker id → line index. */
   crewLeads?: Record<string, number>;
+  /** Generated chapters: faxes are generated every morning (Sandbox). */
+  generator?: boolean;
+  /** Stars by pieces packed (Daily Challenge), filled in by calibration. */
+  scoreStars?: [number, number, number];
+  /** Daily Challenge modifier. */
+  modifier?: { id: string; name: string; text: string; emoji: string };
   /** Applicant roles available in this chapter. */
   applicantRoles: ('operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader' | 'planner' | 'merchandiser')[];
 }

@@ -50,6 +50,7 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
       if (!d) return no('No sample to check.');
       const o = orderById(s, d.orderId!);
       if (o) applySampleResult(o, c.found);
+      if (c.found >= 3) s.stats.perfectSample = true;
       s.decisions = s.decisions.filter((x) => x.id !== c.decision);
       return ok();
     }
@@ -75,6 +76,7 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
       if (o) {
         o.markerEff = Math.max(0.6, Math.min(s.tuning.markerBest, c.eff));
         o.markerSet = true;
+        s.stats.bestMarker = Math.max(s.stats.bestMarker, o.markerEff);
       }
       s.decisions = s.decisions.filter((x) => x.id !== c.decision);
       return ok();

@@ -1,5 +1,6 @@
 import { createRng } from '../core/rng';
 import { CHAPTER_BY_ID } from '../data/chapters';
+import { ensureChapter } from '../data/generated';
 import { DIFFICULTIES, type DifficultyId } from '../data/difficulty';
 import { CREW, type PersonDef } from '../data/people';
 import { ALL_OPS } from '../data/products';
@@ -44,9 +45,10 @@ export function makeWorker(p: PersonDef | (Omit<PersonDef, 'familiar'> & { famil
 }
 
 export function createChapter(chapterId: string, seed: number, opts: ChapterOptions = {}): GameState {
-  const ch = CHAPTER_BY_ID[chapterId];
+  const ch = CHAPTER_BY_ID[chapterId] ?? ensureChapter(chapterId);
   if (!ch) throw new Error(`unknown chapter ${chapterId}`);
   const tuning: Tuning = { ...TUNING, ...opts.tuning };
+  if (ch.modifier?.id === 'short') tuning.shiftEnd = 14 * 60 + 30;
   const diff = DIFFICULTIES[opts.difficulty ?? 'seamstress'];
   const campaign = { ...opts.campaign };
 
@@ -124,7 +126,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     applicants: [],
     negativeDays: 0,
     firedEvents: [],
-    stats: { breakdowns: 0, dayBreakdowns: 0, dayPieces: 0, quietMinutes: 0, dayMinutes: 0, overtimeDays: 0, quits: 0, sickDays: 0, leaderMoves: 0 },
+    stats: { breakdowns: 0, dayBreakdowns: 0, dayPieces: 0, quietMinutes: 0, dayMinutes: 0, overtimeDays: 0, quits: 0, sickDays: 0, leaderMoves: 0, perfectSample: false, bestMarker: 0 },
     failed: null,
   };
 
@@ -135,6 +137,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
   }
   if (ch.systems.includes('hiring')) s.applicants = generateApplicants(s, true);
   planDay(s);
+  if (ch.modifier?.id === 'power' && s.power) s.power.cuts = [{ start: 10 * 60, end: 11 * 60 + 40 }];
   for (const [id, line] of Object.entries(ch.crewLeads ?? {})) if (s.lines[line]) s.lines[line]!.leaderId = id;
   if (ch.extraCrew) {
     // veterans fill empty sewing machines, line by line in turn
@@ -150,7 +153,11 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
       s.workers.push(w);
     });
   }
-  if (ch.index > 2 && campaign['ch2.ut'] === 'join') s.workers.push(makeWorker(CREW.ut!, tuning, null, tuning.shiftStart));
+  // Daily Challenge modifiers
+  if (ch.modifier?.id === 'breakdowns') s.mods.breakdowns *= 2;
+  if (ch.modifier?.id === 'learning') for (const w of s.workers) for (const id of Object.keys(w.learn)) w.learn[id] = 0.4;
+  if (ch.modifier?.id === 'power' && s.power) s.power.cuts = [{ start: 10 * 60, end: 11 * 60 + 40 }];
+  if (ch.index > 2 && ch.index < 100 && campaign['ch2.ut'] === 'join') s.workers.push(makeWorker(CREW.ut!, tuning, null, tuning.shiftStart));
   if (ch.family && ch.family.when === 'start') pushFamily(s);
   return s;
 }

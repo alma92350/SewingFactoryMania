@@ -287,6 +287,8 @@ export interface GameState {
     quits: number;
     sickDays: number;
     leaderMoves: number;
+    perfectSample: boolean;
+    bestMarker: number;
   };
   failed: string | null;
 }
