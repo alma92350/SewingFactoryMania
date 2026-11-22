@@ -62,6 +62,24 @@ export const TUNING = {
   electricianStartMinutes: 3,
   generatorFailUntested: 0.4,
   fuelPerHour: 4,
+
+  /** People (Chapter 5+). */
+  moraleStart: 0.7,
+  moraleSpeed: 0.4,
+  moraleDefects: 0.6,
+  quitBelow: 0.35,
+  quitChance: 0.3,
+  sickChance: 0.025,
+  overtimeCap: 3,
+  overtimeMorale: 0.08,
+  welfareMorale: 0.025,
+  bonusDays: 5,
+  tetReturnBase: 0.72,
+  tetBonusReturn: 0.15,
+  welfareCost: { fans: 60, canteen: 80, water: 25 } as Record<'fans' | 'canteen' | 'water', number>,
+  mentorSkillPerPiece: 0.0006,
+  mentorLearning: 1.8,
+  mentorSeniorSpeed: 0.85,
 };
 
 export type Tuning = typeof TUNING;

@@ -74,7 +74,10 @@ export function rebalance(s: GameState, act: Act, line = 0): void {
 /** Every 15 game minutes, each present leader balances their own line. */
 export function stepLeaders(s: GameState): void {
   if (!has(s, 'leaders') || s.minute % 15 !== 0) return;
-  const act: Act = (r) => (r.ok ? 1 : 0);
+  const act: Act = (r) => {
+    if (r.ok) s.stats.leaderMoves += 1;
+    return r.ok ? 1 : 0;
+  };
   s.lines.forEach((l, line) => {
     if (!l.leaderId || !leaderPresent(s, line)) return;
     seatBench(s, act, line);

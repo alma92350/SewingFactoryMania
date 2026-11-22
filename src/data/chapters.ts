@@ -1,7 +1,20 @@
 /** Chapters 0–2 (PRD §11, Phase 1). Progressive disclosure is data: `systems` gates panels and commands. */
 import type { MachineType } from './products';
 
-export type SystemId = 'line' | 'orders' | 'hiring' | 'quality' | 'mechanic' | 'sourcing' | 'cutting' | 'power' | 'leaders';
+export type SystemId =
+  | 'line'
+  | 'orders'
+  | 'hiring'
+  | 'quality'
+  | 'mechanic'
+  | 'sourcing'
+  | 'cutting'
+  | 'power'
+  | 'leaders'
+  | 'morale'
+  | 'training'
+  | 'planning'
+  | 'merchandising';
 
 export interface QuoteOption {
   label: string;
@@ -30,7 +43,10 @@ export type ScriptEvent =
   | { day: number; minute: number; kind: 'fax'; fax: FaxDef }
   | { day: number; minute: number; kind: 'absent'; worker: string; text: string }
   | { day: number; minute: number; kind: 'change'; tag: string; addPct: number; text: string }
-  | { day: number; minute: number; kind: 'flood'; text: string };
+  | { day: number; minute: number; kind: 'flood'; text: string }
+  | { day: number; minute: number; kind: 'bonus' }
+  | { day: number; minute: number; kind: 'tet' }
+  | { day: number; minute: number; kind: 'family2' };
 
 export interface FamilyOption {
   id: string;
@@ -73,8 +89,14 @@ export interface ChapterDef {
   rainDays?: number[];
   /** Applicants at the gate each morning (default from tuning). */
   applicants?: number;
+  /** A second family scene, pushed by a 'family2' or 'tet' script event. */
+  family2?: FamilyScene;
+  /** Extra experienced operators generated at the start (seeded), seated on empty machines. */
+  extraCrew?: number;
+  /** The Tết holiday day (Chapter 5). */
+  tetDay?: number;
   /** Applicant roles available in this chapter. */
-  applicantRoles: ('operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader')[];
+  applicantRoles: ('operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader' | 'planner' | 'merchandiser')[];
 }
 
 const L: MachineType = 'lockstitch';
@@ -395,6 +417,123 @@ export const CHAPTERS: ChapterDef[] = [
       options: [
         { id: 'help', label: 'Close the factory this afternoon and help', effect: 'Lose the afternoon; tomorrow two skilled neighbours ask for work' },
         { id: 'keep', label: 'Keep the lines running', effect: 'No time lost' },
+      ],
+    },
+  },
+  {
+    id: 'ch5',
+    index: 5,
+    name: 'Before Tết',
+    year: 1995,
+    place: 'Three lines and the Tết rush',
+    intro:
+      'January 1995. Everyone wants their shirts before Tết, and everyone wants to go home for Tết. Thirty people now work for you. Treat them well: after the holiday, only those who want to will come back from the provinces.',
+    days: 8,
+    tetDay: 5,
+    rainDays: [],
+    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting', 'power', 'leaders', 'morale', 'training'],
+    newSystems: ['morale', 'training'],
+    stations: [],
+    lines: [
+      { name: 'Line A', stations: [C, L, L, L, L, O, O, O, B, L, Q] },
+      { name: 'Line B', stations: [L, L, L, L, L, L, O, O, O, B, T, Q] },
+      { name: 'Line C', stations: [L, L, L, L, L, L, O, O, O, B, Q] },
+    ],
+    crew: { tam: 0, thu: 10, linh: 1, lan: 2, thao: 3, trang: 4, hoa: 5, ngan: 6, huong: 7, bich: 11, cuc: 17, dung: 12, giang: 13, hanh: 23, kim: 24, phuong: 14, van: 15 },
+    extraCrew: 14,
+    cash: 1200,
+    rent: 30,
+    applicants: 6,
+    starText: ['Ship all three orders on time', '…with 90% back after Tết and $2,500 or more', '…with nobody quitting, no overtime and Sakura-ya on time'],
+    applicantRoles: ['operator', 'mechanic', 'qc', 'cutter', 'electrician', 'leader'],
+    script: [
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'hanil',
+          buyer: 'hanil',
+          product: 'shirt',
+          text: 'Shirts for the Seoul New Year sales. The vessel before Tết is the last one. Ms. Park.',
+          optional: false,
+          options: [
+            { label: 'Before Tết', qty: 900, price: 8, dueDay: 4 },
+            { label: 'Big, before Tết', qty: 1100, price: 8.2, dueDay: 4 },
+            { label: 'After Tết', qty: 1400, price: 7.8, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'formosa',
+          buyer: 'formosa',
+          product: 'jeans',
+          text: 'Jeans again, CMT. Our denim comes with the truck. After Tết is fine. Mrs. Lin.',
+          optional: false,
+          options: [
+            { label: 'Small run', qty: 700, price: 11.5, dueDay: 6 },
+            { label: 'Shop run', qty: 900, price: 11.5, dueDay: 7 },
+            { label: 'Big run', qty: 1100, price: 11.5, dueDay: 8 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'golden',
+          buyer: 'golden',
+          product: 'workwear',
+          fob: true,
+          text: 'Jackets for the shipyard, FOB as usual. Happy New Year in advance. Mr. Leung.',
+          optional: false,
+          options: [
+            { label: 'Small lot', qty: 500, price: 21, dueDay: 7 },
+            { label: 'Shipyard lot', qty: 600, price: 21, dueDay: 8 },
+            { label: 'Big lot', qty: 800, price: 20.5, dueDay: 8 },
+          ],
+        },
+      },
+      { day: 4, minute: 15 * 60, kind: 'bonus' },
+      { day: 5, minute: 7 * 60, kind: 'tet' },
+      {
+        day: 6,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'sakuraya',
+          buyer: 'sakuraya',
+          product: 'polo',
+          text: 'Akemashite omedetō. A small polo reorder for the spring catalogue, same sample. Watanabe.',
+          optional: true,
+          options: [{ label: 'Reorder', qty: 400, price: 12.5, dueDay: 8 }],
+        },
+      },
+    ],
+    family: {
+      flag: 'ch5.scissors',
+      when: 'start',
+      title: 'Bác Tư’s scissors',
+      body: 'Bác Tư is retiring to his village. Before he goes, he wants to give his old tailor’s scissors, and everything he knows, to one of your seamstresses.',
+      options: [
+        { id: 'lan', label: 'Give them to Lan', effect: 'Lan: every skill +15%, a new trait (−30% defects)' },
+        { id: 'thao', label: 'Give them to Thảo', effect: 'Thảo: every skill +15%, a new trait (−30% defects)' },
+        { id: 'linh', label: 'Give them to Linh', effect: 'Linh: every skill +15%, a new trait (−30% defects)' },
+      ],
+    },
+    family2: {
+      flag: 'ch5.tet',
+      when: 'event',
+      title: 'Tết at home',
+      body: 'It is the first day of Tết. Your family waits at home with bánh chưng and the ancestors’ altar. A few workers say they would come in, for double pay.',
+      options: [
+        { id: 'home', label: 'Close the factory and go home', effect: 'No work today; the respect of everyone (no wages)' },
+        { id: 'stay', label: 'Open with volunteers at double pay', effect: 'About 40% come in; wages doubled today' },
       ],
     },
   },

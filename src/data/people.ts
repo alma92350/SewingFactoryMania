@@ -1,8 +1,8 @@
 /** Crew, traits and the applicant pool (PRD §7). */
 import type { MachineType } from './products';
 
-export type Role = 'operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader';
-export type TraitId = 'fastLoose' | 'careful' | 'oldHand' | 'quickLearner' | 'tireless' | 'radio';
+export type Role = 'operator' | 'mechanic' | 'qc' | 'cutter' | 'electrician' | 'leader' | 'planner' | 'merchandiser';
+export type TraitId = 'fastLoose' | 'careful' | 'oldHand' | 'quickLearner' | 'tireless' | 'radio' | 'scissors';
 
 export interface TraitDef {
   id: TraitId;
@@ -21,6 +21,7 @@ export const TRAITS: Record<TraitId, TraitDef> = {
   quickLearner: { id: 'quickLearner', name: 'Quick Learner', text: 'Learns new operations 60% faster', speed: 1, defects: 1, learning: 1.6, fatigue: 1 },
   tireless: { id: 'tireless', name: 'Tireless', text: 'Gets tired half as fast in overtime', speed: 1, defects: 1, learning: 1, fatigue: 0.5 },
   radio: { id: 'radio', name: 'Radio Singer', text: 'Neighbours sew 5% faster', speed: 1, defects: 1, learning: 1, fatigue: 1 },
+  scissors: { id: 'scissors', name: 'Bác Tư’s Scissors', text: '+5% speed, −30% defects', speed: 1.05, defects: 0.7, learning: 1, fatigue: 1 },
 };
 
 export interface PersonDef {
@@ -92,4 +93,6 @@ export const ROLE_NOTES: Record<Role, string> = {
   cutter: 'Spreads and cuts fabric fast at the cutting table, and spots bad rolls.',
   electrician: 'Starts the generator in a power cut and keeps it serviced.',
   leader: 'Line leader: balances one line for you, moving people to the bottleneck.',
+  planner: 'Production planner: buys fabric for FOB orders and moves queued orders to idle lines.',
+  merchandiser: 'Merchandiser: answers routine faxes with your quote policy and handles samples.',
 };

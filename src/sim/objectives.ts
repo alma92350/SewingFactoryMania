@@ -43,6 +43,15 @@ export function starChecks(s: GameState): [boolean, boolean, boolean] {
       const three = two && (s.power?.minutesLost ?? 0) < 60 && s.stats.overtimeDays === 0 && !!sk && sk.onTime === true;
       return [one, two, three];
     }
+    case 'ch5': {
+      const main = ['hanil', 'formosa', 'golden'].map(byTag);
+      const one = main.every((o) => !!o && o.status === 'shipped' && o.onTime === true);
+      const back = s.tet ? s.tet.returned / Math.max(1, s.tet.returned + s.tet.left.length) : 0;
+      const two = one && back >= 0.9 && s.cash >= 2500;
+      const sk = byTag('sakuraya');
+      const three = two && s.stats.quits === 0 && s.stats.overtimeDays === 0 && !!sk && sk.onTime === true;
+      return [one, two, three];
+    }
   }
   return [false, false, false];
 }

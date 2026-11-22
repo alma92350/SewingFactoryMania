@@ -1,5 +1,6 @@
 import { applySampleResult, bestStationFor, resolveDecision } from './orders';
 import { buyFabric, rejectRolls } from './sourcing';
+import { buyWelfare } from './morale';
 import { makeWorker } from './state';
 import { endDay } from './sim';
 import { has, opDef, orderById, posOf, walkMinutes, workerById } from './selectors';
@@ -19,7 +20,10 @@ export type Command =
   | { type: 'marker'; decision: number; eff: number }
   | { type: 'fabricResult'; decision: number; rolls: number[] }
   | { type: 'pallets' }
-  | { type: 'lead'; workerId: string; line: number | null };
+  | { type: 'lead'; workerId: string; line: number | null }
+  | { type: 'welfare'; item: 'fans' | 'canteen' | 'water' }
+  | { type: 'mentor'; junior: string; senior: string | null }
+  | { type: 'policy'; quote: number; extras: boolean };
 
 export type CommandResult = { ok: true; events: SimEvent[] } | { ok: false; error: string };
 
@@ -56,6 +60,7 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
     case 'overtime':
       if (!has(s, 'orders')) return no('No overtime in this chapter.');
       if (s.phase !== 'shift' || s.minute >= s.tuning.shiftEnd) return no('Too late to change overtime today.');
+      if (c.on && has(s, 'morale') && s.stats.overtimeDays >= s.tuning.overtimeCap) return no('The 1994 Labour Code: no more overtime this month.');
       s.overtime = c.on;
       return ok();
     case 'buy': {
@@ -99,11 +104,31 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
       if (c.line !== null) s.lines[c.line]!.leaderId = w.id;
       return ok();
     }
+    case 'welfare': {
+      const err = buyWelfare(s, c.item);
+      return err ? no(err) : ok();
+    }
+    case 'mentor': {
+      if (!has(s, 'training')) return no('No mentoring in this chapter.');
+      const j = workerById(s, c.junior);
+      if (!j) return no('Unknown worker.');
+      if (c.senior === null) {
+        j.mentor = null;
+        return ok();
+      }
+      const sen = workerById(s, c.senior);
+      if (!sen || sen.id === j.id) return no('Choose another senior.');
+      if (sen.mentor) return no(`${sen.name} is still learning herself.`);
+      j.mentor = sen.id;
+      return ok();
+    }
+    case 'policy':
+      s.policy = { quote: Math.max(0, Math.min(2, Math.round(c.quote))), extras: c.extras };
+      return ok();
     case 'sleep':
       if (s.phase !== 'report') return no('The shift is not over yet.');
       if (s.decisions.length) return no('Answer the open card first.');
-      endDay(s);
-      return ok();
+      return ok(endDay(s));
   }
 }
 

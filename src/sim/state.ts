@@ -4,7 +4,7 @@ import { DIFFICULTIES, type DifficultyId } from '../data/difficulty';
 import { CREW, type PersonDef } from '../data/people';
 import { ALL_OPS } from '../data/products';
 import { TUNING, type Tuning } from '../data/tuning';
-import { generateApplicants } from './people';
+import { generateApplicants, generateVeterans } from './people';
 import { planDay } from './power';
 import { createOrder, activateOrder, pushFamily } from './orders';
 import type { GameState, Station, Worker } from './types';
@@ -36,8 +36,10 @@ export function makeWorker(p: PersonDef | (Omit<PersonDef, 'familiar'> & { famil
     leftAt: minute,
     learn,
     fatigue: 0,
+    morale: tuning.moraleStart,
     absent: false,
     note: p.note,
+    mentor: null,
   };
 }
 
@@ -105,6 +107,10 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     power: ch.systems.includes('power')
       ? { off: false, rain: false, cuts: [], generator: { running: false, startAt: 0, tested: false }, closedFrom: 0, closedUntil: 0, minutesLost: 0 }
       : null,
+    welfare: { fans: false, canteen: false, water: false },
+    tet: ch.tetDay ? { bonusPaid: false, closed: false, volunteers: false, returned: 0, left: [] } : null,
+    policy: { quote: 1, extras: true },
+    closedToday: false,
     workers,
     agents: [{ id: 'director', kind: 'director', target: null, task: null, pos: -1, leftAt: 0, arriveAt: 0, until: 0 }],
     repairQueue: [],
@@ -118,7 +124,7 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
     applicants: [],
     negativeDays: 0,
     firedEvents: [],
-    stats: { breakdowns: 0, dayBreakdowns: 0, dayPieces: 0, quietMinutes: 0, dayMinutes: 0, overtimeDays: 0 },
+    stats: { breakdowns: 0, dayBreakdowns: 0, dayPieces: 0, quietMinutes: 0, dayMinutes: 0, overtimeDays: 0, quits: 0, sickDays: 0, leaderMoves: 0 },
     failed: null,
   };
 
@@ -129,6 +135,20 @@ export function createChapter(chapterId: string, seed: number, opts: ChapterOpti
   }
   if (ch.systems.includes('hiring')) s.applicants = generateApplicants(s, true);
   planDay(s);
+  if (ch.extraCrew) {
+    // veterans fill empty sewing machines, line by line in turn
+    const free = s.stations.filter((st) => st.workerId === null && st.machine !== 'qc' && st.machine !== 'cutting');
+    const byLine = s.lines.map((_, i) => free.filter((st) => st.line === i));
+    const order: typeof free = [];
+    for (let k = 0; order.length < free.length; k++) for (const l of byLine) if (l[k]) order.push(l[k]!);
+    generateVeterans(s, ch.extraCrew).forEach((a, i) => {
+      const seat = order[i];
+      const w = makeWorker({ ...a, familiar: [] }, tuning, seat?.index ?? null, tuning.shiftStart);
+      for (const id of Object.keys(w.learn)) w.learn[id] = 0.7;
+      if (seat) seat.workerId = w.id;
+      s.workers.push(w);
+    });
+  }
   if (ch.index > 2 && campaign['ch2.ut'] === 'join') s.workers.push(makeWorker(CREW.ut!, tuning, null, tuning.shiftStart));
   if (ch.family && ch.family.when === 'start') pushFamily(s);
   return s;

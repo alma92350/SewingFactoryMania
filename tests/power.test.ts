@@ -139,18 +139,22 @@ describe('line leaders', () => {
     expect(benchOps).toHaveLength(0);
   });
 
-  it('with leaders on both lines, the player taps no more per minute in Chapter 4 than in Chapter 2', () => {
-    const rate = (ch: string, seed: number) => {
-      const s = createChapter(ch, seed);
-      const bot = makeBot();
-      let actions = 0;
-      runChapter(s, (x) => {
-        actions += bot(x);
-      });
-      return actions / s.stats.dayMinutes;
+  it('line leaders take the balancing off the player', () => {
+    const run = (noLeaders: boolean, seed: number) => {
+      const balance = { n: 0 };
+      const s = createChapter('ch4', seed);
+      runChapter(s, makeBot({ noLeaders, balance }));
+      return { player: balance.n, leaders: s.stats.leaderMoves };
     };
-    const avg = (ch: string) => SEEDS.slice(0, 4).reduce((a, seed) => a + rate(ch, seed), 0) / 4;
-    expect(avg('ch4')).toBeLessThanOrEqual(avg('ch2'));
+    const sum = (noLeaders: boolean) =>
+      SEEDS.slice(0, 4)
+        .map((seed) => run(noLeaders, seed))
+        .reduce((a, r) => ({ player: a.player + r.player, leaders: a.leaders + r.leaders }), { player: 0, leaders: 0 });
+    const led = sum(false);
+    const alone = sum(true);
+    expect(led.leaders).toBeGreaterThan(0);
+    expect(alone.leaders).toBe(0);
+    expect(led.player).toBeLessThan(alone.player);
   });
 
   it('both flood choices can win Chapter 4', () => {

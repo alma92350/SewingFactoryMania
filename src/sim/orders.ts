@@ -5,6 +5,7 @@ import { PRODUCTS, type MachineType } from '../data/products';
 import { makeWorker } from './state';
 import { deliverBuyerFabric, inspectByCutter, rejectRolls, scrapForRecut } from './sourcing';
 import { generatorDecision } from './power';
+import { bacTuScissors, payBonus, tetVolunteers } from './morale';
 import { aqlPlan, chapterOf, has, inspectionLevel, orderById, orderValue } from './selectors';
 import type { Bundle, Decision, GameState, Order, SimEvent } from './types';
 
@@ -345,6 +346,12 @@ export function bestStationFor(s: GameState, opId: string, exclude: number | nul
   return best;
 }
 
+export function pushFamily2(s: GameState): void {
+  const f = chapterOf(s).family2;
+  if (!f) return;
+  pushDecision(s, { kind: 'family', title: f.title, body: f.body, options: f.options.map((o) => ({ id: o.id, label: o.label, detail: o.effect })), flag: f.flag });
+}
+
 export function pushFamily(s: GameState): void {
   const f = chapterOf(s).family;
   if (!f) return;
@@ -375,11 +382,19 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
     case 'power':
       generatorDecision(s, optionId);
       break;
+    case 'bonus':
+      if (optionId === 'pay') payBonus(s);
+      break;
     case 'family':
       s.campaign[d.flag!] = optionId;
       if (d.flag === 'ch4.flood' && optionId === 'help' && s.power) {
         s.power.closedFrom = 13 * 60;
         s.power.closedUntil = s.tuning.shiftEnd;
+      }
+      if (d.flag === 'ch5.scissors') bacTuScissors(s, optionId);
+      if (d.flag === 'ch5.tet') {
+        if (optionId === 'home') s.closedToday = true;
+        else tetVolunteers(s);
       }
       if (d.flag === 'ch3.loan' && optionId === 'borrow') {
         s.cash += 300;

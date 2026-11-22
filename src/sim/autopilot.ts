@@ -2,6 +2,7 @@ import { applyCommand } from './commands';
 import { coverEmptySteps, leaderPresent, rebalance, seatBench } from './leader';
 export { coverEmptySteps, rebalance } from './leader';
 import { rollsToBuy } from './sourcing';
+import { bonusCost } from './morale';
 import { SUPPLIERS } from '../data/suppliers';
 import { activeOrder, dailyWages, has, lineRate, orderById, projectedFinishDay, workMinutesPerDay } from './selectors';
 import type { GameState } from './types';
@@ -13,6 +14,12 @@ export interface BotConfig {
   family?: Record<string, string>;
   /** When false the bot never hires (to measure what hiring is worth). */
   hire?: boolean;
+  /** The exploiter: no welfare, no bonus, overtime every evening (the "fair play wins" test). */
+  exploit?: boolean;
+  /** Never hire line leaders (to measure what they save). */
+  noLeaders?: boolean;
+  /** Optional counter of balancing actions (seating, covering steps, retargeting machines). */
+  balance?: { n: number };
 }
 
 /**
@@ -29,22 +36,32 @@ export function makeBot(cfg: BotConfig = {}) {
 
     for (const st of s.stations) if (st.broken) act(applyCommand(s, { type: 'fix', station: st.index }));
 
-    if (has(s, 'hiring') && cfg.hire !== false) hireIfNeeded(s, act);
+    if (has(s, 'hiring') && cfg.hire !== false) hireIfNeeded(s, act, cfg);
 
     // leaders seat the bench on their own lines; the player only seats for unled lines
     const allLed = s.lines.every((l, i) => l.leaderId && leaderPresent(s, i));
-    if (!allLed) seatBench(s, act, null);
+    const bal = (r: { ok: boolean }) => {
+      if (r.ok && cfg.balance) cfg.balance.n += 1;
+      return act(r);
+    };
+    if (!allLed) seatBench(s, bal, null);
 
     // lines with a leader balance themselves (that is the point of hiring one)
     s.lines.forEach((l, line) => {
       if (l.leaderId && leaderPresent(s, line)) return;
-      coverEmptySteps(s, act, line);
-      if (s.minute % 60 === 0) rebalance(s, act, line);
+      coverEmptySteps(s, bal, line);
+      if (s.minute % 60 === 0) rebalance(s, bal, line);
     });
     if (has(s, 'leaders')) assignLeaders(s, act);
 
     if (has(s, 'sourcing') && s.minute % 30 === 0) buyFabricIfNeeded(s, act);
     if (has(s, 'power') && !s.pallets && s.cash > s.tuning.palletsCost + dailyWages(s) * 2) act(applyCommand(s, { type: 'pallets' }));
+    if (has(s, 'morale') && !cfg.exploit) {
+      for (const item of ['water', 'canteen', 'fans'] as const) {
+        if (!s.welfare[item] && s.cash > s.tuning.welfareCost[item] + dailyWages(s) * 3) act(applyCommand(s, { type: 'welfare', item }));
+      }
+    }
+    if (cfg.exploit && has(s, 'orders') && s.minute === 15 * 60 && !s.overtime) act(applyCommand(s, { type: 'overtime', on: true }));
 
     const o = activeOrder(s);
     if (o && has(s, 'orders') && s.minute === 15 * 60 && !s.overtime) {
@@ -82,12 +99,14 @@ export function answer(s: GameState, id: number, cfg: BotConfig = {}): string {
       return 'cutter';
     case 'power':
       return 'start';
+    case 'bonus':
+      return !cfg.exploit && s.cash > bonusCost(s) + dailyWages(s) * 2 ? 'pay' : 'no';
     default:
       return d.options[0]!.id;
   }
 }
 
-function hireIfNeeded(s: GameState, act: (r: { ok: boolean }) => number): void {
+function hireIfNeeded(s: GameState, act: (r: { ok: boolean }) => number, cfg: BotConfig): void {
   const seats = s.stations.filter((st) => st.machine !== 'qc' && st.machine !== 'cutting' && st.opId !== null).length;
   const sewers = s.workers.filter((w) => w.role === 'operator' && !w.absent).length;
   const budget = s.cash - dailyWages(s) * 2;
@@ -106,7 +125,7 @@ function hireIfNeeded(s: GameState, act: (r: { ok: boolean }) => number): void {
     const e = pickBest('electrician');
     if (e && budget > e.wage * 3) act(applyCommand(s, { type: 'hire', applicant: e.id }));
   }
-  if (has(s, 'leaders') && s.workers.filter((w) => w.role === 'leader').length < s.lines.length) {
+  if (has(s, 'leaders') && !cfg.noLeaders && s.workers.filter((w) => w.role === 'leader').length < s.lines.length) {
     const l = pickBest('leader');
     if (l && budget > l.wage * 3) act(applyCommand(s, { type: 'hire', applicant: l.id }));
   }

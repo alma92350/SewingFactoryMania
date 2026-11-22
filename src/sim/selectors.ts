@@ -4,6 +4,7 @@ import { TRAITS } from '../data/people';
 import { ALL_OPS, PRODUCTS, type OperationDef } from '../data/products';
 import type { GameState, Order, Station, Worker } from './types';
 import { powerStops } from './power';
+import { mentorPenalty, moraleSpeed } from './morale';
 
 /** The bench sits beside the middle of the line, for walking distances. */
 export function benchPos(s: GameState): number {
@@ -86,7 +87,7 @@ export function stationEfficiency(s: GameState, st: Station): number {
   const w = workerById(s, st.workerId);
   if (!w || st.opId === null) return 0;
   const learn = w.learn[st.opId] ?? s.tuning.learnStart;
-  return w.skill[st.machine] * learn * (1 - s.tuning.fatigueSpeed * w.fatigue) * traitSpeed(w) * radioBonus(s, st);
+  return w.skill[st.machine] * learn * (1 - s.tuning.fatigueSpeed * w.fatigue) * traitSpeed(w) * radioBonus(s, st) * moraleSpeed(s, w) * mentorPenalty(s, w);
 }
 
 export function stationStopped(s: GameState, st: Station): boolean {

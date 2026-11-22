@@ -2,6 +2,7 @@ import { chance } from '../core/rng';
 import { PRODUCTS } from '../data/products';
 import { bestStationFor, sendRework } from './orders';
 import { stepCutting } from './sourcing';
+import { mentoring, moraleDefects } from './morale';
 import {
   activeOrder,
   opDef,
@@ -28,7 +29,7 @@ export function defectTerms(s: GameState, st: Station, w: Worker): { p: number; 
   const wear = 1 + t.defectWear * st.wear;
   const fatigue = 1 + t.fatigueDefects * w.fatigue;
   const order = activeOrder(s, st.line);
-  const p = op.risk * skill * lrn * wear * fatigue * traitDefects(w) * s.mods.defects * (order?.sampleFactor ?? 1);
+  const p = op.risk * skill * lrn * wear * fatigue * traitDefects(w) * s.mods.defects * (order?.sampleFactor ?? 1) * moraleDefects(s, w);
   return { p, skill, learn: lrn, wear, fatigue };
 }
 
@@ -71,10 +72,10 @@ export function stepStation(s: GameState, st: Station, events: SimEvent[]): void
   const made = Math.min(rate, b.pieces - b.done);
   b.done += made;
   st.output += made;
-  w.learn[op.id] = Math.min(1, (w.learn[op.id] ?? 0) + made * s.tuning.learnPerPiece * traitLearning(w));
+  w.learn[op.id] = Math.min(1, (w.learn[op.id] ?? 0) + made * s.tuning.learnPerPiece * traitLearning(w) * mentoring(s, w, st.machine, made));
   st.wear = Math.min(1, st.wear + made * s.tuning.wearPerPiece);
   const overtime = s.minute >= s.tuning.shiftEnd;
-  w.fatigue = Math.min(1, w.fatigue + s.tuning.fatiguePerMinute * (overtime ? s.tuning.overtimeFatigue : 1) * traitFatigue(w));
+  w.fatigue = Math.min(1, w.fatigue + s.tuning.fatiguePerMinute * (overtime ? s.tuning.overtimeFatigue : 1) * traitFatigue(w) * (s.welfare.fans ? 0.7 : 1));
   if (op.machine !== 'qc') b.pAcc += defectTerms(s, st, w).p * made;
 
   if (b.done >= b.pieces - 1e-9) {

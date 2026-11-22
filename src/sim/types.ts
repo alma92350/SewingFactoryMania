@@ -57,8 +57,12 @@ export interface Worker {
   leftAt: number;
   learn: Record<string, number>;
   fatigue: number;
+  /** 0..1: how the worker feels about the factory (Chapter 5+). */
+  morale: number;
   absent: boolean;
   note: string;
+  /** A senior who is teaching this worker (mentoring, Chapter 5+). */
+  mentor: string | null;
 }
 
 export interface Agent {
@@ -186,7 +190,7 @@ export interface DecisionOption {
   detail?: string;
 }
 
-export type DecisionKind = 'fax' | 'family' | 'cutoff' | 'inspection' | 'change' | 'sample' | 'marker' | 'fabric' | 'power' | 'info';
+export type DecisionKind = 'fax' | 'family' | 'cutoff' | 'inspection' | 'change' | 'sample' | 'marker' | 'fabric' | 'power' | 'bonus' | 'info';
 
 export interface Decision {
   id: number;
@@ -251,6 +255,13 @@ export interface GameState {
   loan: number;
   pallets: boolean;
   power: PowerState | null;
+  welfare: { fans: boolean; canteen: boolean; water: boolean };
+  /** Tết (Chapter 5): the holiday day, whether the 13th-month bonus was paid, who came back. */
+  tet: { bonusPaid: boolean; closed: boolean; volunteers: boolean; returned: number; left: string[] } | null;
+  /** Merchandiser policy: which quote to pick on routine faxes, and whether to take optional orders. */
+  policy: { quote: number; extras: boolean };
+  /** Today the factory is closed (no wages, nobody sews). */
+  closedToday: boolean;
   workers: Worker[];
   agents: Agent[];
   repairQueue: number[];
@@ -271,6 +282,9 @@ export interface GameState {
     quietMinutes: number;
     dayMinutes: number;
     overtimeDays: number;
+    quits: number;
+    sickDays: number;
+    leaderMoves: number;
   };
   failed: string | null;
 }

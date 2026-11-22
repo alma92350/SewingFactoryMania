@@ -4,7 +4,8 @@ import { stepAgents } from './agents';
 import { stepShipments } from './sourcing';
 import { planDay, stepPower, tickPower } from './power';
 import { stepLeaders } from './leader';
-import { checkOrders, pushDecision, pushFamily, shipOrder } from './orders';
+import { bonusCost, morningSickness, nightlyMorale, nightlyQuits, tetReturns } from './morale';
+import { checkOrders, pushDecision, pushFamily, pushFamily2, shipOrder } from './orders';
 import { generateApplicants } from './people';
 import { stepStation } from './production';
 import { actionable, chapterOf, dailyWages, has, isLunch, lineEfficiency, shiftEndMinute, workerById } from './selectors';
@@ -20,6 +21,11 @@ export function step(s: GameState): SimEvent[] {
   const events: SimEvent[] = [];
   if (s.phase !== 'shift' || s.decisions.length > 0) return events;
   const t = s.tuning;
+  if (s.closedToday) {
+    s.minute = shiftEndMinute(s);
+    endShift(s, events);
+    return events;
+  }
 
   fireScript(s, events);
   if (has(s, 'sourcing')) stepShipments(s, events);
@@ -29,7 +35,7 @@ export function step(s: GameState): SimEvent[] {
 
   if (s.minute === t.lunchStart) {
     events.push({ kind: 'lunch', start: true });
-    for (const w of s.workers) w.fatigue = Math.max(0, w.fatigue - t.lunchRecovery);
+    for (const w of s.workers) w.fatigue = Math.max(0, w.fatigue - t.lunchRecovery * (s.welfare.canteen ? 2 : 1));
   }
   if (s.minute === t.lunchEnd) events.push({ kind: 'lunch', start: false });
 
@@ -87,6 +93,20 @@ function fireScript(s: GameState, events: SimEvent[]): void {
       for (const sh of s.shipments) if (sh.status === 'transit') sh.arriveDay += 1;
       events.push({ kind: 'note', text: e.text });
       pushFamily(s);
+    } else if (e.kind === 'bonus') {
+      const d = pushDecision(s, {
+        kind: 'bonus',
+        title: 'The 13th-month bonus',
+        body: 'Tết is coming. Every worker hopes for the 13th-month bonus to take home to their family in the provinces. Those who get it are much more likely to come back after the holiday.',
+        options: [
+          { id: 'pay', label: `Pay the bonus · $${bonusCost(s)}`, detail: 'Morale +20%, many more come back after Tết' },
+          { id: 'no', label: 'Not this year', detail: 'Keep the cash; expect fewer to return' },
+        ],
+      });
+      events.push({ kind: 'decision', id: d.id });
+    } else if (e.kind === 'tet' || e.kind === 'family2') {
+      pushFamily2(s);
+      if (e.kind === 'tet') events.push({ kind: 'note', text: 'Chúc mừng năm mới! Tết has come.' });
     } else if (e.kind === 'change') {
       const o = s.orders.find((q) => q.tag === e.tag && (q.status === 'active' || q.status === 'queued'));
       if (!o) return;
@@ -112,7 +132,8 @@ function endShift(s: GameState, events: SimEvent[]): void {
   if (has(s, 'orders')) {
     const wages = dailyWages(s);
     const premium = s.overtime ? wages * ((s.tuning.overtimeEnd - s.tuning.shiftEnd) / 540) * s.tuning.overtimeWagePremium : 0;
-    const wageCost = Math.round((wages + premium) * 100) / 100;
+    const tetDouble = s.tet?.volunteers && s.day === chapterOf(s).tetDay ? 2 : 1;
+    const wageCost = s.closedToday ? 0 : Math.round((wages * tetDouble + premium) * 100) / 100;
     const rent = chapterOf(s).rent;
     const electricity = Math.round(s.stations.filter((st) => st.machine !== 'qc').length * s.tuning.electricityPerMachine * 100) / 100;
     s.ledger.wages += wageCost;
@@ -137,9 +158,13 @@ function endShift(s: GameState, events: SimEvent[]): void {
 }
 
 /** "Sleep until 07:00": the night passes, and the next shift starts (or the chapter ends). */
-export function endDay(s: GameState): void {
-  if (s.phase !== 'report') return;
+export function endDay(s: GameState): SimEvent[] {
+  const events: SimEvent[] = [];
+  if (s.phase !== 'report') return events;
   const ch = chapterOf(s);
+  nightlyMorale(s, s.overtime);
+  if (ch.tetDay && s.day === ch.tetDay) tetReturns(s, events);
+  else nightlyQuits(s, events);
   if (s.day >= ch.days) {
     // the chapter ends: whatever is still on the floor ships short
     for (const o of s.orders) if (o.status === 'active' || o.status === 'queued') shipOrder(s, o, [], true);
@@ -149,11 +174,13 @@ export function endDay(s: GameState): void {
     }
     s.phase = 'done';
     if (ch.family?.when === 'end') pushFamily(s);
-    return;
+    return events;
   }
   s.day += 1;
   s.minute = s.tuning.shiftStart;
   s.overtime = false;
+  s.closedToday = false;
+  if (s.tet) s.tet.volunteers = false;
   s.phase = 'shift';
   s.ledger = emptyLedger();
   s.stats.dayBreakdowns = 0;
@@ -180,7 +207,8 @@ export function endDay(s: GameState): void {
     a.pos = -1;
   }
   s.repairQueue = s.stations.filter((st) => st.broken && s.agents.some((a) => a.kind === 'mechanic')).map((st) => st.index);
-  if (has(s, 'hiring')) s.applicants = generateApplicants(s);
+  // after Tết, many people look for work in the city
+  if (has(s, 'hiring')) s.applicants = generateApplicants(s, false, ch.tetDay && s.day === ch.tetDay + 1 ? 6 : 0);
   if (s.campaign['ch4.flood'] === 'help' && !s.campaign['ch4.bonus']) {
     // the neighbours you helped send their daughters to work for you
     s.campaign['ch4.bonus'] = 'given';
@@ -192,6 +220,8 @@ export function endDay(s: GameState): void {
     }
   }
   planDay(s);
+  morningSickness(s, events);
+  return events;
 }
 
 /** Run until the chapter is done, calling `each` before every minute (the bot hooks in here). */
