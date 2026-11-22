@@ -856,4 +856,4 @@ The "exploiter" bot never buys welfare, never pays the bonus, keeps the factory 
 - **Four lines, not six**, in the Export Zone: six lines left too little room per station on a phone, and four already give enough work for the planner. The 60 fps criterion was measured with four.
 - Fair play wins on stars in every chapter, but not on cash in Ch5 (see above). This is deliberate for now: a stingy owner can make money in the short term, and pays for it in the people who come back.
 - The Daily Challenge share line is text only (no image), and there is no online leaderboard: the score is compared with the bot's calibration.
-- Uncle Sáu's favour is a fax order (Mr. Phúc's work jackets), not a family scene with choices.
+- Uncle Sáu's favour is a fax order (300 work jackets from Mr. Leung, only if you accepted Uncle Sáu's letter in Chapter 1), not a family scene with choices.
