@@ -1,6 +1,6 @@
 {
   "name": "sewingfactorymania",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "A 1990s Saigon sewing factory management game for desktop and mobile browsers.",

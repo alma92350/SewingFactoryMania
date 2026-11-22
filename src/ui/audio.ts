@@ -9,18 +9,26 @@ const BPM = 112;
 const STEP = 60 / BPM / 4; // 16th note in seconds
 const LOOKAHEAD = 0.12;
 
-// x = hit. Each station gets a different rhythm so the layers interlock.
+// x = hit. Stations take patterns in turn so the layers interlock.
 const PATTERNS = [
-  'x...x...x...x...', // join (overlock): steady pulse
-  'x.x...x.x.x...x.', // side seams
-  '..x...x...x..xx.', // pocket
-  'x..x..x..x..x.x.', // spare
-  '.x.x.x...x.x.x..', // waistband
-  'x...x.x.x...x.x.', // elastic (overlock)
-  '....x.......x...', // hem: backbeat
+  'x...x...x...x...',
+  'x.x...x.x.x...x.',
+  '..x...x...x..xx.',
+  'x..x..x..x..x.x.',
+  '.x.x.x...x.x.x..',
+  'x...x.x.x...x.x.',
+  '....x.......x...',
+  '.x...x...x...x..',
+  'x.....x.x.....x.',
+  '..x.x...x.x.....',
 ].map((p) => [...p].map((c) => c === 'x'));
 
-const PITCH = [900, 2600, 2100, 1800, 3000, 1100, 1500];
+const PITCH: Record<string, number[]> = {
+  lockstitch: [2600, 2100, 3000, 1800, 2400, 2800],
+  overlock: [900, 1100, 1300],
+  buttonhole: [600],
+  qc: [],
+};
 
 export class LineAudio {
   private ctx: AudioContext | null = null;
@@ -31,7 +39,11 @@ export class LineAudio {
   private timer: number | null = null;
   enabled = true;
 
-  constructor(private isStationWorking: (i: number) => boolean, private running: () => boolean) {}
+  constructor(
+    private isStationWorking: (i: number) => boolean,
+    private machineOf: (i: number) => string,
+    private running: () => boolean,
+  ) {}
 
   /** Must be called from a user gesture (browser autoplay rules). */
   unlock(): void {
@@ -64,8 +76,11 @@ export class LineAudio {
     if (this.nextTime < ctx.currentTime) this.nextTime = ctx.currentTime + 0.02;
     while (this.nextTime < ctx.currentTime + LOOKAHEAD) {
       if (this.enabled && this.running()) {
-        for (let i = 0; i < PATTERNS.length; i++) {
-          if (PATTERNS[i]![this.stepIndex] && this.isStationWorking(i)) this.tick(this.nextTime, PITCH[i]!, i === 0 || i === 5);
+        for (let i = 0; i < 16; i++) {
+          if (!PATTERNS[i % PATTERNS.length]![this.stepIndex] || !this.isStationWorking(i)) continue;
+          const m = this.machineOf(i);
+          const pitches = PITCH[m] ?? [];
+          if (pitches.length) this.tick(this.nextTime, pitches[i % pitches.length]!, m !== 'lockstitch');
         }
       }
       this.stepIndex = (this.stepIndex + 1) % 16;
@@ -98,6 +113,19 @@ export class LineAudio {
   twang(): void {
     this.tone(1760, 0.25, 'square', 0.12);
     this.tone(1850, 0.25, 'square', 0.1);
+  }
+
+  /** Fax machine screech: a new order. */
+  fax(): void {
+    this.tone(1200, 0.12, 'sawtooth', 0.08);
+    this.tone(2100, 0.18, 'sawtooth', 0.06, 0.12);
+    this.tone(1650, 0.25, 'square', 0.05, 0.3);
+  }
+
+  /** Cash register: an order shipped. */
+  cash(): void {
+    this.tone(1320, 0.08, 'triangle', 0.3);
+    this.tone(1760, 0.3, 'triangle', 0.3, 0.08);
   }
 
   /** Two notes: the machine runs again. */

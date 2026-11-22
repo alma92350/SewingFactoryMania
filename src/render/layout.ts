@@ -1,6 +1,6 @@
 /**
- * Pure layout math shared by drawing and hit-testing. Portrait screens run the line
- * top → bottom, landscape screens left → right.
+ * Pure layout math shared by drawing and hit-testing. Portrait screens run the line top → bottom
+ * (two columns when there are many machines); landscape screens run it left → right (two rows).
  */
 export interface Rect {
   x: number;
@@ -15,6 +15,7 @@ export interface StationCell {
   table: Rect;
   label: Rect;
   seat: { x: number; y: number };
+  horizontal: boolean;
 }
 
 export interface Layout {
@@ -35,60 +36,80 @@ function inset(r: Rect, d: number): Rect {
   return { x: r.x + d, y: r.y + d, w: r.w - 2 * d, h: r.h - 2 * d };
 }
 
-export function computeLayout(width: number, height: number, stationCount: number): Layout {
+function stationCell(cell: Rect): StationCell {
+  const horizontal = cell.w / cell.h > 1.6;
+  if (horizontal) {
+    const pile = inset({ x: cell.x, y: cell.y, w: cell.w * 0.32, h: cell.h }, 3);
+    const table = inset({ x: cell.x + cell.w * 0.33, y: cell.y, w: cell.w * 0.32, h: cell.h }, 4);
+    const label = inset({ x: cell.x + cell.w * 0.67, y: cell.y, w: cell.w * 0.33, h: cell.h }, 2);
+    return { cell, pile, table, label, horizontal, seat: { x: table.x + table.w * 0.74, y: table.y + table.h * 0.52 } };
+  }
+  const pile = inset({ x: cell.x, y: cell.y, w: cell.w, h: cell.h * 0.34 }, 3);
+  const table = inset({ x: cell.x, y: cell.y + cell.h * 0.35, w: cell.w, h: cell.h * 0.32 }, 4);
+  const label = inset({ x: cell.x, y: cell.y + cell.h * 0.68, w: cell.w, h: cell.h * 0.32 }, 2);
+  return { cell, pile, table, label, horizontal, seat: { x: table.x + table.w * 0.5, y: table.y + table.h * 0.72 } };
+}
+
+export function computeLayout(width: number, height: number, n: number): Layout {
   const portrait = height >= width * 0.9;
   const stations: StationCell[] = [];
   let cut: Rect;
   let done: Rect;
   let bench: Rect;
   let office: Rect;
+  const W = width - 2 * PAD;
+  const H = height - 2 * PAD;
 
   if (portrait) {
-    const rows = stationCount + 2;
-    const rowH = Math.min(96, (height - 2 * PAD) / rows);
-    const W = width - 2 * PAD;
-    const top = PAD + Math.max(0, (height - 2 * PAD - rowH * rows) / 2);
+    const cols = n > 8 ? 2 : 1;
+    const perCol = Math.ceil(n / cols);
+    const rows = perCol + 2;
+    const rowH = Math.min(96, H / rows);
+    const top = PAD + Math.max(0, (H - rowH * rows) / 2);
     office = { x: PAD, y: top, w: W * 0.2, h: rowH };
-    cut = { x: PAD + W * 0.2, y: top, w: W * 0.25, h: rowH };
-    bench = { x: PAD + W * 0.47, y: top, w: W * 0.53, h: rowH };
-    for (let i = 0; i < stationCount; i++) {
-      const cell = { x: PAD, y: top + rowH * (i + 1), w: W, h: rowH };
-      const pile = inset({ x: cell.x, y: cell.y, w: cell.w * 0.34, h: cell.h }, 4);
-      const table = inset({ x: cell.x + cell.w * 0.36, y: cell.y, w: cell.w * 0.3, h: cell.h }, 5);
-      const label = inset({ x: cell.x + cell.w * 0.68, y: cell.y, w: cell.w * 0.32, h: cell.h }, 3);
-      stations.push({ cell, pile, table, label, seat: { x: table.x + table.w * 0.72, y: table.y + table.h * 0.5 } });
+    cut = { x: PAD + W * 0.21, y: top, w: W * 0.24, h: rowH };
+    bench = { x: PAD + W * 0.46, y: top, w: W * 0.54, h: rowH };
+    const colW = W / cols;
+    for (let i = 0; i < n; i++) {
+      const c = Math.floor(i / perCol);
+      const r = i % perCol;
+      stations.push(stationCell({ x: PAD + c * colW, y: top + rowH * (r + 1), w: colW, h: rowH }));
     }
-    done = { x: PAD, y: top + rowH * (stationCount + 1), w: W, h: rowH };
+    done = { x: PAD, y: top + rowH * (perCol + 1), w: W, h: rowH };
   } else {
-    const cols = stationCount + 2;
-    const colW = (width - 2 * PAD) / cols;
-    const H = height - 2 * PAD;
-    const lineH = H * 0.72;
-    cut = inset({ x: PAD, y: PAD, w: colW, h: lineH }, 4);
-    for (let i = 0; i < stationCount; i++) {
-      const cell = { x: PAD + colW * (i + 1), y: PAD, w: colW, h: lineH };
-      const pile = inset({ x: cell.x, y: cell.y, w: cell.w, h: cell.h * 0.36 }, 4);
-      const table = inset({ x: cell.x, y: cell.y + cell.h * 0.38, w: cell.w, h: cell.h * 0.3 }, 5);
-      const label = inset({ x: cell.x, y: cell.y + cell.h * 0.7, w: cell.w, h: cell.h * 0.3 }, 3);
-      stations.push({ cell, pile, table, label, seat: { x: table.x + table.w * 0.5, y: table.y + table.h * 0.72 } });
+    const rows = n > 10 ? 2 : 1;
+    const perRow = Math.ceil(n / rows);
+    const cols = perRow + 2;
+    const colW = W / cols;
+    const lineH = H * 0.74;
+    const rowH = lineH / rows;
+    cut = inset({ x: PAD, y: PAD, w: colW, h: lineH }, 3);
+    for (let i = 0; i < n; i++) {
+      const r = Math.floor(i / perRow);
+      const c = i % perRow;
+      stations.push(stationCell({ x: PAD + colW * (c + 1), y: PAD + r * rowH, w: colW, h: rowH }));
     }
-    done = inset({ x: PAD + colW * (stationCount + 1), y: PAD, w: colW, h: lineH }, 4);
-    office = inset({ x: PAD, y: PAD + lineH, w: colW * 2, h: H - lineH }, 4);
-    bench = inset({ x: PAD + colW * 2, y: PAD + lineH, w: colW * (cols - 2), h: H - lineH }, 4);
+    done = inset({ x: PAD + colW * (cols - 1), y: PAD, w: colW, h: lineH }, 3);
+    office = inset({ x: PAD, y: PAD + lineH, w: colW * 2, h: H - lineH }, 3);
+    bench = inset({ x: PAD + colW * 2, y: PAD + lineH, w: colW * (cols - 2), h: H - lineH }, 3);
   }
   const t = stations[0]!.table;
-  const radius = Math.max(10, Math.min(22, Math.min(t.w, t.h) * 0.3));
+  const radius = Math.max(9, Math.min(20, Math.min(t.w, t.h) * 0.3));
   return { portrait, width, height, radius, stations, cut, done, bench, office };
 }
 
 export function benchSlot(l: Layout, i: number, n: number): { x: number; y: number } {
   const b = l.bench;
-  const step = Math.min(l.radius * 2.6, b.w / Math.max(1, n));
-  return { x: b.x + step * (i + 0.5), y: b.y + b.h * 0.58 };
+  const perRow = Math.max(1, Math.floor(b.w / (l.radius * 2.5)));
+  const rows = Math.ceil(n / perRow);
+  const step = Math.min(l.radius * 2.5, b.w / Math.max(1, Math.min(n, perRow)));
+  const r = Math.floor(i / perRow);
+  const rowH = (b.h - 14) / Math.max(1, rows);
+  return { x: b.x + step * ((i % perRow) + 0.5), y: b.y + 14 + rowH * (r + 0.5) };
 }
 
-export function officeSpot(l: Layout): { x: number; y: number } {
-  return { x: l.office.x + l.office.w / 2, y: l.office.y + l.office.h * 0.6 };
+export function officeSpot(l: Layout, k = 0): { x: number; y: number } {
+  return { x: l.office.x + l.office.w * (0.3 + 0.35 * k), y: l.office.y + l.office.h * 0.62 };
 }
 
 export function contains(r: Rect, x: number, y: number): boolean {

@@ -718,3 +718,48 @@ Stars set from these: ★ 290 · ★★ 340 · ★★★ 370. Breakdowns average
 | 5-person phone playtest: ≥ 4/5 "wanted to fix the line"; bottleneck found in < 5 s | ⏳ needs humans |
 
 **Next:** run the playtest, then decide whether moving people mid-shift (and losing the learning) feels like a good trade-off or like a punishment, before Phase 1 builds on it.
+
+---
+
+## Phase 1 results (build 0.1.0, "The Family Workshop")
+
+**Shipped**
+- **Campaign:** title screen with chapter select (unlock by ★), three difficulties, autosave at every shift end and "Continue", chapter intro cards with star goals, chapter-end notebook with ★ checklist, Next/Replay.
+- **Chapter 0 · The Family Workshop** (1 shift): the Phase 0 line, now inside the campaign. Family scene at the end: *Má's machines* (keep: +$40 and 20% more breakdowns later; sell: −$40 and 30% fewer).
+- **Chapter 1 · The First Fax** (6 shifts): Hanil's shirt fax with three quote cards, Ms. Park's "+15%, same vessel" change, Uncle Sáu's letter (accept → Mr. Leung's trial order of shorts on day 2), 10 machines and 7 seamstresses so hiring is required, changeovers between products, overtime, vessel cut-off (air freight in 2 days for half the order value, or a short shipment with a penalty), wages/rent/electricity every evening, bankruptcy after 2 days in the red.
+- **Chapter 2 · The Man with the Ruler** (6 shifts): Sakura-ya polo order with strict AQL inspection, Spot the Defect sample check (3 differences in 15 s; up to −30% defects), traceable defects (skill, learning, needle wear, fatigue) with a post-mortem table and remedies, QC table and QC inspectors with rework back to the operation that caused the defect, re-check after a rejection, mechanics who fix breakdowns unasked and change worn needles, Hanil's reorder fax, Lan absent on day 4, Út's choice (join: a free quick learner; Osaka: Sakura-ya samples approved with the best rating).
+- **People:** skills per machine type (lockstitch, overlock, buttonhole, QC), learning per operation, basic fatigue (overtime), six traits, four applicants every morning, hire / let go.
+- **UI:** bottom panel tabs (Line, Orders, Team, Handbook), fax cards, inspection stamp, day report on a notebook page, Bác Tư tips at teaching moments (stored, replayable in the Handbook), glossary.
+- **Art pass v1:** top-down seamstresses (cap, hair, coat colour, efficiency ring, "z" when tired), three machine silhouettes plus the QC table, per-product fabric colours, rework bundles in red, mechanic and director agents, tiled floor; layouts for 7–13 machines in portrait (two columns) and landscape (two rows).
+- **Rhythm engine v1:** any number of stations, pitch by machine type; fax screech, cash register, needle twang.
+- **PWA:** manifest and offline service worker. Bundle: 31 KB gzipped JS.
+
+**Measured with the bot** (Seamstress difficulty, 8 seeds per chapter)
+
+| Chapter | Bot stars | Cash at end | Overtime days | Breakdowns | Quiet time |
+|---|---|---:|---:|---:|---:|
+| 0 | ★★ ×7, ★ ×1 | — | 0 | 0–6 | 29–30% |
+| 1 | ★★ ×8 | $1,051–1,058 | 2–3 | 19–40 | 17–26% |
+| 2 | ★★ ×4, ★ ×4 | $1,355–1,556 | 1–2 | 14–27 | 32–43% |
+
+Doing nothing earns no star in any chapter. In Chapter 1 the bot always needs overtime, so it never gets ★★★ (which requires no overtime); in Chapter 2 it fails the first inspection on some seeds.
+
+**Exit criteria status**
+
+| Criterion | Status |
+|---|---|
+| Tutorial ≤ 7 min | ✅ Chapter 0 is one 6.3-minute shift |
+| Shift 6–8 min | ✅ tested |
+| Quiet ≤ 60% | ✅ tested per chapter (17–43%; the 50% Phase 2 target is already met) |
+| ≤ 2 new systems per chapter | ✅ tested (line → orders + hiring → quality + mechanic) |
+| Bot wins every chapter, doing nothing loses, ★★★ not free | ✅ tested on 8 seeds per chapter |
+| Every family path winnable and changes the game | ✅ tested (Má's machines, Uncle Sáu, Út) |
+| Every failed inspection traceable to recorded causes | ✅ tested |
+| Plays on desktop and phone without errors | ✅ Playwright: Ch0 seating, Ch1 fax + hiring, Ch2 sample micro-game |
+| 10-player playtest, tutorial completion > 80% | ⏳ needs humans |
+
+**Deviations from the plan**
+- Buyer reputation is not modelled yet; "Sakura-ya will remember" is flavour until Phase 2. Uncle Sáu's later favour (Ch6) and the family loan (Ch3) are Phase 2/3 content.
+- Hong Kong's trial order is shorts (CMT), matching D14; FOB sourcing starts in Ch3 as planned.
+- The QC table only inspects when someone sits there; an empty QC table lets garments through unchecked (a softer failure than blocking the line).
+- No e-ink mode yet (planned for Phase 2).

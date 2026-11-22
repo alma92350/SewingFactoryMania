@@ -63,3 +63,75 @@ button:focus-visible { outline: 3px solid #e8c547; outline-offset: 2px; }
 .card .buttons { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ── Phase 1 ─────────────────────────────────────────── */
+body.at-title #app { visibility: hidden; }
+#topbar .menu { min-width: 40px; }
+#topbar .clock small { display: block; font: 600 11px system-ui, sans-serif; opacity: 0.8; }
+#topbar .clock .ot { font: 600 11px system-ui, sans-serif; background: #e8c547; color: #2b2a26; border-radius: 6px; padding: 1px 5px; margin-left: 6px; vertical-align: 3px; }
+#topbar .cash { font-weight: 700; font-size: 16px; }
+#topbar .cash.bad { color: #ffb4a8; }
+#topbar .goal { font-size: 13px; font-weight: 600; }
+.ok { color: var(--ok); }
+.bad { color: var(--bad); }
+#topbar .ok { color: #b9f6ca; }
+#topbar .bad { color: #ffb4a8; }
+
+#panel { display: flex; flex-direction: column; padding-top: 0; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 0 -12px 6px; padding: 0 8px; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+#panel .tabs button { border: 0; border-radius: 0; background: transparent; min-height: 40px; padding: 4px 12px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; }
+#panel .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.badge { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 5px; border-radius: 9px; background: var(--bad); color: #fff; font-size: 11px; line-height: 18px; }
+.tabbody { overflow-y: auto; flex: 1; min-height: 0; }
+.tabbody h3 { font-size: 13px; margin: 10px 0 4px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.trait { display: inline-block; font-size: 11px; background: #efe6d2; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+.order { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; margin: 6px 0; background: #fffdf7; }
+.bar { height: 6px; background: #e9e0cc; border-radius: 3px; overflow: hidden; margin: 4px 0; }
+.bar div { height: 100%; background: var(--accent); }
+.person { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.person .mini { margin-left: auto; }
+#panel button.mini { min-height: 34px; padding: 2px 10px; font-size: 13px; }
+.applicant { background: #fffdf7; }
+details { margin: 4px 0; } summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+dl { margin: 0; } dt { font-weight: 700; margin-top: 6px; } dd { margin: 0 0 4px; color: var(--muted); }
+
+.choices { display: flex; flex-direction: column; gap: 8px; }
+.card button.choice { display: flex; flex-direction: column; align-items: flex-start; text-align: left; width: 100%; }
+.card button.choice small { font-weight: 400; opacity: 0.85; }
+.card { max-height: 92dvh; overflow-y: auto; }
+.card.fax { background: repeating-linear-gradient(#fbf8f0 0 26px, #f1ece0 26px 27px); font-family: 'Courier New', ui-monospace, monospace; transform: rotate(-0.6deg); }
+.card.fax h2 { font-family: system-ui, sans-serif; }
+.faxhead { font-size: 11px; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px dashed var(--muted); padding-bottom: 4px; }
+.faxbody { font-size: 15px; }
+.mentor.family { background: #c9e4d6; }
+.stamp { float: right; transform: rotate(-12deg); border: 4px solid; border-radius: 8px; padding: 4px 10px; font: 900 22px/1 system-ui, sans-serif; letter-spacing: 0.08em; margin: 0 0 8px 8px; }
+.stamp.pass { color: #2e7d32; } .stamp.fail { color: #c0392b; }
+table.pm { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
+table.pm th, table.pm td { text-align: left; border-bottom: 1px solid var(--line); padding: 4px; vertical-align: top; }
+ul.goals { list-style: none; padding: 0; margin: 8px 0; }
+ul.goals li { padding: 2px 0; }
+
+.title { max-width: 520px; width: 100%; max-height: 96dvh; overflow-y: auto; background: var(--surface); border-radius: 16px; padding: 22px 18px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); }
+.title h1 { margin: 0; font: 900 32px/1.1 system-ui, sans-serif; color: var(--top); letter-spacing: -0.01em; }
+.title h1 span { color: #c2185b; }
+.title .sub { color: var(--muted); margin: 6px 0 16px; }
+.title button.big { width: 100%; min-height: 56px; display: flex; flex-direction: column; align-items: center; margin-bottom: 12px; }
+.title button.big small { font-weight: 400; }
+.chapters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.title button.chapter { display: flex; align-items: center; gap: 12px; text-align: left; min-height: 60px; border: 1px solid var(--line); background: var(--bg); border-radius: 12px; padding: 8px 12px; color: var(--ink); cursor: pointer; }
+.title button.chapter:disabled { opacity: 0.5; cursor: default; }
+.title button.chapter .num { font: 900 22px system-ui, sans-serif; color: var(--top); width: 24px; text-align: center; }
+.title button.chapter small { display: block; color: var(--muted); font-size: 12px; }
+.title button.chapter .st { margin-left: auto; color: #d4a800; letter-spacing: 1px; }
+.row.center, .center { justify-content: center; text-align: center; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--bg); min-height: 40px; padding: 4px 10px; color: var(--ink); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+
+.card.game .polos { display: flex; gap: 8px; }
+.card.game figure { flex: 1; margin: 0; text-align: center; }
+.card.game figcaption { font-weight: 600; font-size: 13px; }
+.card.game .tap { cursor: crosshair; background: #fffdf7; border: 2px solid var(--accent); border-radius: 10px; touch-action: manipulation; }
+.card.game svg { width: 100%; height: auto; display: block; }
+.timer { height: 8px; background: #e9e0cc; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+.timer div { height: 100%; width: 100%; background: #e8a33c; }
