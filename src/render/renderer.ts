@@ -1,5 +1,5 @@
 import { MACHINE_LABEL, PRODUCTS } from '../data/products';
-import { activeOrder, bottleneck, has, isLunch, isWorking, opCapacities, opDef, orderById, stationEfficiency, stationRate, workerById } from '../sim/selectors';
+import { activeOrder, bottleneck, chapterOf, has, isLunch, isWorking, opCapacities, opDef, orderById, stationEfficiency, stationRate, workerById } from '../sim/selectors';
 import type { Agent, Bundle, GameState, Station, Worker } from '../sim/types';
 import { benchSlot, computeLayout, contains, officeSpot, type Layout, type Rect } from './layout';
 import { tr } from '../ui/i18n';
@@ -256,6 +256,8 @@ export class Renderer {
     for (const w of this.floorWorkers(s)) this.drawWorker(s, w, view, frac, timeMs);
     s.agents.forEach((a, k) => this.drawAgent(s, a, k, frac, timeMs));
     this.drawStaff(s);
+    this.drawCalendar(s);
+    this.drawCat(s, timeMs);
     this.drawWeather(s, timeMs);
 
     if (lunch && s.phase === 'shift') {
@@ -659,6 +661,85 @@ export class Renderer {
     }
   }
 
+  /** Cosmetics chosen on the title screen (looks only). */
+  cosmetics: { cap: string; collar: string | null; calendar: { colour: string } | null } = { cap: 'rgba(255,255,255,0.85)', collar: null, calendar: null };
+
+  /** The factory cat wanders along the bench and sleeps through lunch. */
+  private drawCat(s: GameState, timeMs: number): void {
+    if (!this.cosmetics.collar) return;
+    const ctx = this.ctx;
+    const b = this.layout.bench;
+    const r = this.layout.radius * 0.55;
+    const asleep = isLunch(s) || s.phase !== 'shift';
+    const t = asleep ? 0 : timeMs / 7000;
+    const x = b.x + b.w * (0.55 + 0.38 * Math.sin(t));
+    const y = b.y + b.h - r * 1.6;
+    const dir = Math.cos(t) >= 0 ? 1 : -1;
+    const fur = einkOn ? '#666' : '#e08a2e';
+    ctx.fillStyle = fur;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * 1.3, r * 0.75, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // tail
+    ctx.strokeStyle = fur;
+    ctx.lineWidth = r * 0.3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - dir * r * 1.2, y);
+    ctx.quadraticCurveTo(x - dir * r * 2.1, y - r * (asleep ? 0.2 : 1.2 + 0.2 * Math.sin(timeMs / 300)), x - dir * r * 1.7, y - r * (asleep ? -0.4 : 1.6));
+    ctx.stroke();
+    // head and ears
+    const hx = x + dir * r * 1.15;
+    const hy = y - r * (asleep ? 0.1 : 0.55);
+    ctx.beginPath();
+    ctx.arc(hx, hy, r * 0.62, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(hx - r * 0.5, hy - r * 0.3);
+    ctx.lineTo(hx - r * 0.35, hy - r * 0.95);
+    ctx.lineTo(hx - r * 0.05, hy - r * 0.5);
+    ctx.moveTo(hx + r * 0.05, hy - r * 0.5);
+    ctx.lineTo(hx + r * 0.35, hy - r * 0.95);
+    ctx.lineTo(hx + r * 0.5, hy - r * 0.3);
+    ctx.fill();
+    // collar
+    ctx.strokeStyle = einkOn ? '#000' : this.cosmetics.collar;
+    ctx.lineWidth = Math.max(1.5, r * 0.18);
+    ctx.beginPath();
+    ctx.arc(hx, hy, r * 0.62, Math.PI * 0.25, Math.PI * 0.75);
+    ctx.stroke();
+    if (asleep) {
+      ctx.fillStyle = C.muted;
+      ctx.font = `${Math.round(r)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('z', hx + dir * r, hy - r * 1.1);
+    }
+    ctx.lineCap = 'butt';
+  }
+
+  /** The supplier's wall calendar in the office. */
+  private drawCalendar(s: GameState): void {
+    const cal = this.cosmetics.calendar;
+    if (!cal) return;
+    const ctx = this.ctx;
+    const o = this.layout.office;
+    const w = Math.min(26, o.w * 0.18);
+    const h = w * 1.25;
+    const x = o.x + o.w - w - 6;
+    const y = o.y + 6;
+    ctx.fillStyle = '#fffdf6';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = einkOn ? '#444' : cal.colour;
+    ctx.fillRect(x, y, w, h * 0.45);
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    ctx.fillStyle = C.ink;
+    ctx.font = `bold ${Math.round(w * 0.32)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(String(chapterOf(s).year), x + w / 2, y + h * 0.85);
+  }
+
   private body(x: number, y: number, r: number, coat: string, label: string, hairCap = true): void {
     const ctx = this.ctx;
     ctx.fillStyle = 'rgba(0,0,0,0.12)';
@@ -678,7 +759,7 @@ export class Renderer {
     ctx.arc(x, y - r * 0.55, r * 0.52, Math.PI, Math.PI * 2);
     ctx.fill();
     if (hairCap) {
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillStyle = einkOn ? 'rgba(255,255,255,0.85)' : this.cosmetics.cap;
       ctx.fillRect(x - r * 0.5, y - r * 0.95, r, r * 0.16);
     }
     ctx.fillStyle = '#fff';

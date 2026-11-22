@@ -1,6 +1,6 @@
 /**
  * Number- and name-aware translator (the DataCenterMania approach).
- * Views and the canvas stay in English; when Vietnamese is on, every text segment is looked up
+ * Views and the canvas stay in English; when Vietnamese or French is on, every text segment is looked up
  * with numbers replaced by {n} and proper names (people, buyers, suppliers) by {p}, then the
  * values are put back in order. Segments are split on " · " so composite labels translate piece by piece.
  */
@@ -8,8 +8,13 @@ import { BUYERS } from '../data/buyers';
 import { APPLICANT_NAMES, CREW } from '../data/people';
 import { SUPPLIERS } from '../data/suppliers';
 import { VI, VI_NAMES } from './vi';
+import { FR, FR_NAMES } from './fr';
 
-export type Lang = 'en' | 'vi';
+export type Lang = 'en' | 'vi' | 'fr';
+export type TargetLang = Exclude<Lang, 'en'>;
+export const LANGS: TargetLang[] = ['vi', 'fr'];
+const DICTS: Record<TargetLang, Record<string, string>> = { vi: VI, fr: FR };
+const NAME_MAPS: Record<TargetLang, Record<string, string>> = { vi: VI_NAMES, fr: FR_NAMES };
 let lang: Lang = 'en';
 
 export function setLang(l: Lang): void {
@@ -56,44 +61,47 @@ export function keyOf(text: string): { key: string; names: string[]; nums: strin
   return { key, names, nums };
 }
 
-function fill(template: string, names: string[], nums: string[]): string {
+function fill(template: string, names: string[], nums: string[], l: TargetLang): string {
   let i = 0;
   let j = 0;
   return template.replace(/\{p\}|\{n\}/g, (m) => {
     if (m === '{n}') return nums[j++] ?? '';
     const name = names[i++] ?? '';
-    return VI_NAMES[name] ?? name; // a few names have a Vietnamese form (Chuyền A, cảng Sài Gòn)
+    return NAME_MAPS[l][name] ?? name; // a few names have a local form (Chuyền A, Ligne A, cảng Sài Gòn)
   });
 }
 
-export function hasTranslation(segment: string): boolean {
+export function hasTranslation(segment: string, l: TargetLang = 'vi'): boolean {
+  const D = DICTS[l];
   const s = decode(segment.trim());
   if (s.startsWith('SewingFactoryMania #')) return true; // the share line stays the same in every language
   if (!/\p{L}/u.test(s)) return true;
   if (s.replace(/[^\p{L}]/gu, '').length <= 2) return true; // initials on avatars, single letters
   const { key } = keyOf(s);
   if (/^[{}pn\s·/:✓✗⛴×—…!,.()+−-]*$/.test(key)) return true; // only names and numbers
-  if (key in VI) return true;
+  if (key in D) return true;
   const m = key.match(/^(.*?\p{L}.*?)\s+(\{n\}[^\p{L}]*)$/u);
-  return !!m && m[1]! in VI;
+  return !!m && m[1]! in D;
 }
 
 const decode = (t: string) => t.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 const encode = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function translateSegment(seg: string): string {
+  if (lang === 'en') return seg;
+  const D = DICTS[lang];
   const lead = seg.match(/^\s*/)![0];
   const trail = seg.match(/\s*$/)![0];
   const core = seg.trim();
   if (!core || !/\p{L}/u.test(core)) return seg;
   const { key, names, nums } = keyOf(core);
-  let hit = VI[key];
+  let hit = D[key];
   if (hit === undefined) {
     // "Collar {n}" → translate the label, keep the trailing numbers
     const m = key.match(/^(.*?\p{L}.*?)\s+(\{n\}[^\p{L}]*)$/u);
-    if (m && VI[m[1]!] !== undefined) hit = `${VI[m[1]!]} ${m[2]}`;
+    if (m && D[m[1]!] !== undefined) hit = `${D[m[1]!]} ${m[2]}`;
   }
-  return hit === undefined ? seg : lead + fill(hit, names, nums) + trail;
+  return hit === undefined ? seg : lead + fill(hit, names, nums, lang) + trail;
 }
 
 /** Translate plain text (canvas labels, toasts). */

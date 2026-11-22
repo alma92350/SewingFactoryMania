@@ -9,6 +9,7 @@ import { bonusCost, morningSickness, nightlyMorale, nightlyQuits, tetReturns } f
 import { checkOrders, lineCanMake, pushDecision, pushFamily, pushFamily2, shipOrder } from './orders';
 import { sandboxFaxOptions } from '../data/generated';
 import { macroShock, prospectFaxes } from './macro';
+import { chance } from '../core/rng';
 import { generateApplicants } from './people';
 import { stepStation } from './production';
 import { actionable, chapterOf, dailyWages, has, isLunch, lineEfficiency, shiftEndMinute, workerById } from './selectors';
@@ -112,6 +113,19 @@ function fireScript(s: GameState, events: SimEvent[]): void {
       w.station = null;
       w.absent = true;
       events.push({ kind: 'note', text: e.text });
+    } else if (e.kind === 'cat') {
+      if (s.campaign.cat) return;
+      const d = pushDecision(s, {
+        kind: 'family',
+        title: 'A mouse in the warehouse',
+        body: 'The cutter found a nest in a roll of poplin. At lunch, a thin orange cat walks in from the street, sits by the fabric and looks at you.',
+        flag: 'cat',
+        options: [
+          { id: 'adopt', label: 'Adopt the cat', detail: 'No more mice; the workers love her (a little morale every night from Chapter 5)' },
+          { id: 'shoo', label: 'Shoo her away', detail: 'No cat on the floor; mice chew a roll now and then' },
+        ],
+      });
+      events.push({ kind: 'decision', id: d.id });
     } else if (e.kind === 'shock') {
       macroShock(s, e.buyer, e.cutPct, e.text, events);
     } else if (e.kind === 'flood') {
@@ -188,6 +202,7 @@ export function endDay(s: GameState): SimEvent[] {
   if (s.phase !== 'report') return events;
   const ch = chapterOf(s);
   nightlyMorale(s, s.overtime);
+  nightlyMice(s, events);
   if (ch.tetDay && s.day === ch.tetDay) tetReturns(s, events);
   else nightlyQuits(s, events);
   if (s.day >= ch.days) {
@@ -248,6 +263,15 @@ export function endDay(s: GameState): SimEvent[] {
   planDay(s);
   morningSickness(s, events);
   return events;
+}
+
+/** Without a cat, a mouse sometimes chews a good roll in the warehouse at night. */
+function nightlyMice(s: GameState, events: SimEvent[]): void {
+  if (s.campaign.cat !== 'shoo' || !has(s, 'sourcing')) return;
+  const good = s.warehouse.filter((r) => r.condition === 'good');
+  if (!good.length || !chance(s.rng, 0.3)) return;
+  good[0]!.condition = 'flawed';
+  events.push({ kind: 'note', text: 'A mouse chewed a roll in the warehouse.' });
 }
 
 /** Run until the chapter is done, calling `each` before every minute (the bot hooks in here). */

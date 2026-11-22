@@ -5,6 +5,8 @@
  * All sound is synthesised with WebAudio: no audio files to download.
  */
 
+import { SONGS } from '../data/cosmetics';
+
 const BPM = 112;
 const STEP = 60 / BPM / 4; // 16th note in seconds
 const LOOKAHEAD = 0.12;
@@ -37,6 +39,8 @@ export class LineAudio {
   private nextTime = 0;
   private stepIndex = 0;
   private timer: number | null = null;
+  private song: (typeof SONGS)[string] | null = null;
+  private songPos = 0;
   enabled = true;
 
   constructor(
@@ -65,6 +69,13 @@ export class LineAudio {
     this.timer = window.setInterval(() => this.schedule(), 25);
   }
 
+  /** The factory radio: an original melody in time with the line (null = off). */
+  setSong(id: string | null): void {
+    const next = id ? (SONGS[id] ?? null) : null;
+    if (next !== this.song) this.songPos = 0;
+    this.song = next;
+  }
+
   setEnabled(on: boolean): void {
     this.enabled = on;
     if (this.master) this.master.gain.value = on ? 0.5 : 0;
@@ -81,6 +92,16 @@ export class LineAudio {
           const m = this.machineOf(i);
           const pitches = PITCH[m] ?? [];
           if (pitches.length) this.tick(this.nextTime, pitches[i % pitches.length]!, m !== 'lockstitch');
+        }
+        if (this.song && this.stepIndex % 2 === 0) {
+          const notes = this.song.notes;
+          const n = notes[this.songPos % notes.length]!;
+          if (n >= 0) this.radio(this.nextTime, this.song.root * 2 ** (n / 12), 0.05, STEP * 1.8);
+          if (this.songPos % 8 === 0) {
+            const b = this.song.bass[(this.songPos / 8) % this.song.bass.length]!;
+            this.radio(this.nextTime, (this.song.root / 2) * 2 ** (b / 12), 0.06, STEP * 7);
+          }
+          this.songPos += 1;
         }
       }
       this.stepIndex = (this.stepIndex + 1) % 16;
@@ -102,6 +123,24 @@ export class LineAudio {
     src.connect(filter).connect(g).connect(this.master!);
     src.start(at);
     src.stop(at + 0.07);
+  }
+
+  /** A soft radio note: a small, slightly muffled transistor radio. */
+  private radio(at: number, freq: number, vol: number, dur: number): void {
+    const ctx = this.ctx!;
+    const o = ctx.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = freq;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 2400;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(vol, at + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(f).connect(g).connect(this.master!);
+    o.start(at);
+    o.stop(at + dur + 0.02);
   }
 
   /** Low thunk: a finished bundle drops into the carton. */

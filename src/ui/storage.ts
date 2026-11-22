@@ -1,6 +1,8 @@
 /** Local persistence. Every access is guarded: storage can be missing or blocked. */
 import type { DifficultyId } from '../data/difficulty';
 import type { GameState } from '../sim/types';
+import type { Cosmetics } from '../data/cosmetics';
+import type { ScrapPage } from './scrapbook';
 
 export interface Progress {
   stars: Record<string, number>;
@@ -11,7 +13,7 @@ export interface Progress {
   /** Display mode chosen by the player (undefined = auto-detect). */
   eink?: boolean;
   /** Language chosen by the player (undefined = from the browser). */
-  lang?: 'en' | 'vi';
+  lang?: 'en' | 'vi' | 'fr';
   achievements?: string[];
   /** Best Daily Challenge score by daily id. */
   dailyBest?: Record<string, number>;
@@ -19,6 +21,10 @@ export interface Progress {
   sandboxBest?: number;
   /** Opt-in local play log. */
   log?: boolean;
+  /** Looks chosen on the title screen. */
+  cosmetics?: Partial<Cosmetics>;
+  /** One scrapbook page per finished campaign chapter. */
+  scrapbook?: Record<string, ScrapPage>;
 }
 
 const PROGRESS_KEY = 'sfm.progress.v1';

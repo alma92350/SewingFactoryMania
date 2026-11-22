@@ -11,6 +11,7 @@ import { endDay, step } from '../src/sim/sim';
 import { createChapter } from '../src/sim/state';
 import type { GameState } from '../src/sim/types';
 import { segmentsOfHtml } from '../src/ui/i18n';
+import { scrapbookHtml, scrapPage } from '../src/ui/scrapbook';
 import { prepareDaily, shareLine } from '../src/sim/meta';
 import { ensureChapter } from '../src/data/generated';
 import {
@@ -61,7 +62,13 @@ export function harvest(): { html: string[]; canvas: string[] } {
   }));
   // Bác Tư's tips and the handbook tips use whole-text Vietnamese (VI_TIPS), tested separately
   add(bookTabHtml([]));
+  // a veteran's title screen: every chapter, the cat, cosmetics unlocked, the hardest difficulty
+  const vet = { ...progress, stars: { ch0: 3, ch1: 3, ch2: 3, ch3: 3, ch4: 3, ch5: 3, ch6: 3, ch7: 3 }, campaign: { cat: 'adopt' }, cosmetics: { cap: 'pink', radio: 'peach' } };
+  add(titleHtml(vet, false, '', false, { dailyId: daily.id, dailyName: daily.name, dailyPlace: daily.place, dailyBest: undefined, d1: { days: 1, returned: 0 } }));
+  add(titleHtml({ ...progress, stars: {} }, false, ''));
 
+  const pages: Record<string, ReturnType<typeof scrapPage>> = {};
+  const campaign: Record<string, string> = {};
   const snapshot = (s: GameState) => {
     add(topbarHtml(s, 1, true));
     add(tabsHtml(s, 'line'));
@@ -90,9 +97,19 @@ export function harvest(): { html: string[]; canvas: string[] } {
   const extra = [prepareDaily(20261201), prepareDaily(20261202), ensureChapter('sandbox-2-4')!];
   for (const ch of [...CHAPTERS, ...extra]) {
     add(introHtml(ch.id));
+    // the first cards of the chapter, before anyone (a merchandiser) answers them
+    const peek = createChapter(ch.id, 7);
+    for (let i = 0; i < 3; i++) {
+      step(peek);
+      for (const d of peek.decisions) add(decisionHtml(peek, d));
+    }
     for (const family of [undefined, 'second']) {
       const s = createChapter(ch.id, 7);
-      const bot = makeBot(family && ch.family ? { family: { [ch.family.flag]: ch.family.options[1]!.id } } : {});
+      const alt: Record<string, string> = {};
+      if (family && ch.family) alt[ch.family.flag] = ch.family.options[1]!.id;
+      if (family && ch.family2) alt[ch.family2.flag] = ch.family2.options[1]!.id;
+      if (family) alt.cat = 'shoo';
+      const bot = makeBot(family ? { family: alt } : {});
       for (let i = 0; i < (ch.generator ? 12000 : 40000) && s.phase !== 'done'; i++) {
         for (const d of s.decisions) add(decisionHtml(s, d));
         bot(s);
@@ -106,8 +123,13 @@ export function harvest(): { html: string[]; canvas: string[] } {
         step(s);
       }
       for (const d of s.decisions) add(decisionHtml(s, d));
-      add(chapterEndHtml(s, true, ['doors', 'sharp'], ch.scoreStars ? shareLine(s) : ''));
+      add(chapterEndHtml(s, true, ['doors', 'sharp', 'storm', 'nobody', 'cat', 'thursday'], ch.scoreStars ? shareLine(s) : ''));
+      if (!ch.generator && !ch.scoreStars) pages[ch.id] = scrapPage(s);
+      Object.assign(campaign, s.campaign);
     }
   }
+  add(scrapbookHtml({}, {}));
+  add(scrapbookHtml(pages, campaign));
+  add(scrapbookHtml(pages, { ...campaign, 'ch7.ma': 'keep', 'ch7.leung': 'rest', 'ch2.ut': 'osaka', 'ch4.flood': 'help', cat: 'adopt' }));
   return { html, canvas };
 }

@@ -31,7 +31,11 @@ import { bonusCost, welfareCount } from '../sim/morale';
 import { CHAPTER_BY_ID } from '../data/chapters';
 import { MODIFIERS } from '../data/generated';
 import { VI_TIPS } from './vi';
+import { FR_TIPS } from './fr';
 import { SUPPLIERS } from '../data/suppliers';
+import { MARKETS } from '../data/markets';
+import { layoffBlocked, newCustomers } from '../sim/macro';
+import { cosmeticsHtml, epilogue } from './scrapbook';
 import { metresInTransit, metresPerBundle, rollsSummary, rollsToBuy } from '../sim/sourcing';
 
 export type Tab = 'line' | 'orders' | 'fabric' | 'team' | 'book';
@@ -187,8 +191,29 @@ export function ordersTabHtml(s: GameState): string {
   return (
     `<div class="row buttons"><button data-action="overtime" aria-pressed="${s.overtime}" ${canOt ? '' : 'disabled'}>${s.overtime ? '✓ Overtime tonight until 19:00' : 'Overtime tonight until 19:00'}</button><span class="muted small">≈ ${money(premium)} extra wages, tired workers</span></div>` +
     (has(s, 'morale') ? `<div class="row small ${capped ? 'bad' : 'muted'}">1994 Labour Code: ${s.stats.overtimeDays}/${s.tuning.overtimeCap} overtime evenings used this month</div>` : '') +
+    marketsHtml(s) +
     list
   );
+}
+
+/** Chapter 7: the shock and the search for new customers. */
+function marketsHtml(s: GameState): string {
+  if (!has(s, 'diversify')) return '';
+  const shock = s.macro
+    ? `<p class="small bad">📉 <span>Korea: ${s.macro.cutPieces.toLocaleString('en')} pieces cancelled on day ${s.macro.day}.</span></p>`
+    : '<p class="small muted">The fax machine is quiet. Too quiet.</p>';
+  const lastDay = chapterOf(s).days - 2;
+  const rows = MARKETS.map((m) => {
+    const p = s.prospects.find((x) => x.market === m.id);
+    const late = s.day + m.delay > lastDay;
+    const state = p
+      ? p.sent
+        ? '<span class="ok small">✓ <span>First fax received</span></span>'
+        : `<span class="muted small">First fax on day ${p.day}</span>`
+      : `<button class="mini" data-action="prospect" data-arg="${m.id}" ${late || s.cash < m.cost ? 'disabled' : ''}>Look · $${m.cost}</button>`;
+    return `<div class="supplier"><div><b>${esc(m.name)}</b><div class="muted small">${esc(m.text)}</div></div>${state}</div>`;
+  }).join('');
+  return `<h3>New markets</h3>${shock}<div class="small muted">New customers on time: ${newCustomers(s)}</div>${rows}`;
 }
 
 const ROLE_NAME: Record<string, string> = {
@@ -310,7 +335,7 @@ export function teamTabHtml(s: GameState): string {
         <span class="small">${w.role === 'operator' ? `L ${pips(w.skill.lockstitch)} O ${pips(w.skill.overlock)}` : w.role === 'qc' ? `QC ${pips(w.skill.qc)}` : ''}</span>
         ${has(s, 'morale') ? moraleBar(w.morale) : ''}${w.mentor ? `<span class="trait">learning from ${esc(workerById(s, w.mentor)?.name ?? '')}</span>` : ''}
         ${w.traits.map((t) => `<span class="trait" title="${TRAITS[t].text}">${TRAITS[t].name}</span>`).join('')}${leadButtons}
-        <button class="mini" data-action="letGo" data-arg="${w.id}" aria-label="Let ${esc(w.name)} go">Let go</button></div>`;
+        ${layoffBlocked(s) ? '' : `<button class="mini" data-action="letGo" data-arg="${w.id}" aria-label="Let ${esc(w.name)} go">Let go</button>`}</div>`;
     })
     .join('');
   const apps = s.applicants.length
@@ -327,9 +352,10 @@ export function teamTabHtml(s: GameState): string {
   return `${has(s, 'morale') ? careHtml(s) : ''}${has(s, 'merchandising') ? officeHtml(s) : ''}<h3>At the gate this morning</h3>${apps}<h3>Your team · ${money(dailyWages(s))}/day</h3>${people}`;
 }
 
-/** Bác Tư's tips contain markup, so Vietnamese uses whole-text versions instead of the segment translator. */
+/** Bác Tư's tips contain markup, so Vietnamese and French use whole-text versions instead of the segment translator. */
 export function tipText(id: string): Tip {
-  return (getLang() === 'vi' && VI_TIPS[id]) || TIPS[id]!;
+  const l = getLang();
+  return (l === 'vi' && VI_TIPS[id]) || (l === 'fr' && FR_TIPS[id]) || TIPS[id]!;
 }
 
 export function bookTabHtml(seen: string[]): string {
@@ -423,8 +449,10 @@ export function chapterEndHtml(s: GameState, hasNext: boolean, unlocked: string[
   const verdict = s.failed === 'bankrupt' ? 'The workshop ran out of money.' : n === 0 ? 'Not this time. Try again: every day teaches something.' : n === 3 ? 'Legendary. The whole street talks about your line.' : 'Well done.';
   return `<div class="card report" role="dialog" aria-labelledby="end-title"><div class="notebook"><h2 id="end-title">${esc(chapterOf(s).name)}</h2>
     <div class="bigstars" aria-label="${n} of 3 stars">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</div><p>${verdict}</p><ul class="goals">${lines}</ul>
-    ${has(s, 'orders') ? `<p>Final cash: <b>${money(s.cash)}</b></p>` : ''}${shareBox}${ach}</div>
-    <div class="buttons"><button data-action="title">Menu</button>${ch.scoreStars ? '' : '<button data-action="replay">Replay</button>'}${hasNext && n > 0 && !ch.scoreStars ? '<button class="primary" data-action="next">Next chapter</button>' : ''}</div></div>`;
+    ${has(s, 'orders') ? `<p>Final cash: <b>${money(s.cash)}</b></p>` : ''}${shareBox}${ach}${
+      s.chapterId === 'ch7' && n > 0 ? `<h3>Epilogue</h3>${epilogue(s.campaign).map((t) => `<p>${esc(t)}</p>`).join('')}` : ''
+    }</div>
+    <div class="buttons"><button data-action="title">Menu</button>${s.chapterId === 'ch7' && n > 0 ? '<button class="primary" data-action="scrapbook">The scrapbook</button>' : ''}${ch.scoreStars ? '' : '<button data-action="replay">Replay</button>'}${hasNext && n > 0 && !ch.scoreStars ? '<button class="primary" data-action="next">Next chapter</button>' : ''}</div></div>`;
 }
 
 export interface TitleExtras {
@@ -446,6 +474,8 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink
       .map((n) => `<button class="mini chip" data-action="sandbox" data-arg="${n}" ${unlockedSandbox ? '' : 'disabled'}>${n} line${n > 1 ? 's' : ''}</button>`)
       .join('')}</div></div>
     <details class="ach"><summary>Achievements · ${got.length}/${ACHIEVEMENTS.length}</summary><ul class="goals">${ACHIEVEMENTS.map((a) => `<li class="${got.includes(a.id) ? 'ok' : 'muted'}">${got.includes(a.id) ? '🏅' : '○'} <b>${esc(a.name)}</b>: <span>${esc(a.text)}</span></li>`).join('')}</ul></details>
+    <div class="row center"><button class="mini" data-action="scrapbook">📖 The scrapbook</button></div>
+    <details class="ach"><summary>Looks · stars unlock caps, collars, calendars and radio songs</summary>${cosmeticsHtml(p.cosmetics ?? {}, career.total, p.campaign.cat === 'adopt')}</details>
     <details class="ach"><summary>Play log</summary><p class="small muted">An optional diary of your sessions, kept only on this device, to help playtests. Nothing is sent anywhere.</p>
     <div class="row center"><div class="seg"><button data-action="log" data-arg="1" aria-pressed="${!!p.log}">On</button><button data-action="log" data-arg="0" aria-pressed="${!p.log}">Off</button></div><button class="mini" data-action="logExport">Export JSON</button></div>
     <p class="small muted center">Days played: ${x.d1.days} · came back the next day: ${x.d1.returned}</p></details>`
@@ -467,7 +497,7 @@ export function titleHtml(p: Progress, hasSave: boolean, saveLabel: string, eink
     ${hasSave ? `<button class="primary big" data-action="continue">Continue <small>${esc(saveLabel)}</small></button>` : ''}
     <div class="chapters">${chapters}</div>${extra}
     <div class="row center"><span class="muted small">Difficulty</span><div class="seg">${diffs}</div></div>
-    <div class="row center"><span class="muted small">Language</span><div class="seg"><button data-action="lang" data-arg="en" aria-pressed="${getLang() === 'en'}">English</button><button data-action="lang" data-arg="vi" aria-pressed="${getLang() === 'vi'}">Tiếng Việt</button></div></div>
+    <div class="row center"><span class="muted small">Language</span><div class="seg"><button data-action="lang" data-arg="en" aria-pressed="${getLang() === 'en'}">English</button><button data-action="lang" data-arg="vi" aria-pressed="${getLang() === 'vi'}" lang="vi">Tiếng Việt</button><button data-action="lang" data-arg="fr" aria-pressed="${getLang() === 'fr'}" lang="fr">Français</button></div></div>
     <div class="row center"><span class="muted small">Display</span><div class="seg"><button data-action="eink" data-arg="0" aria-pressed="${!eink}">Colour</button><button data-action="eink" data-arg="1" aria-pressed="${eink}">E-ink</button></div></div>
     <p class="muted small center">Free, no ads, works offline. Inspired by DataCenterMania.</p></div>`;
 }

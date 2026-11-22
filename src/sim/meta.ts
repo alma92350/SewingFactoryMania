@@ -72,6 +72,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'zone', name: 'Export Zone', text: 'Finish Chapter 6 with at least one star.', check: (s) => s.chapterId === 'ch6' && stars(s) >= 1 },
   { id: 'daily', name: 'Daily Seamstress', text: 'Finish a Daily Challenge with at least one star.', check: (s) => s.chapterId.startsWith('daily-') && stars(s) >= 1 },
   { id: 'tendays', name: 'Ten Days', text: 'Survive ten days in the Sandbox.', check: (s) => s.chapterId.startsWith('sandbox-') && s.history.length >= 10 },
+  { id: 'storm', name: 'After the Storm', text: 'Finish Chapter 7 with at least one star.', check: (s) => s.chapterId === 'ch7' && stars(s) >= 1 },
+  { id: 'nobody', name: 'Nobody Left Behind', text: 'Finish Chapter 7 without letting anyone go.', check: (s) => s.chapterId === 'ch7' && stars(s) >= 1 && (s.stats.layoffs ?? 0) === 0 },
+  { id: 'cat', name: 'The Cat Stays', text: 'Finish Chapter 7 with the factory cat.', check: (s) => s.chapterId === 'ch7' && stars(s) >= 1 && s.campaign.cat === 'adopt' },
+  { id: 'thursday', name: 'The Ship Leaves Thursday', text: 'Earn a star on the hardest difficulty.', check: (s) => s.difficulty === 'thursday' && stars(s) >= 1 && !CHAPTER_BY_ID[s.chapterId]?.generator },
 ];
 
 export function newAchievements(s: GameState, have: string[]): string[] {

@@ -30,6 +30,7 @@ export function nightlyMorale(s: GameState, overtimeToday: boolean): void {
     d += overtimeToday ? -t.overtimeMorale : 0.015;
     if (w.fatigue > 0.6) d -= 0.03;
     if (w.role === 'operator' && w.wage > 0) d += Math.max(-0.05, Math.min(0.05, (w.wage - marketWage(w)) * 0.15));
+    if (s.campaign.cat === 'adopt') d += 0.01; // the factory cat
     w.morale = clamp01(w.morale + d);
   }
 }

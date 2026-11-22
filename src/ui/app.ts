@@ -13,6 +13,8 @@ import { d1Return, exportLog, logEvent, readLog } from './telemetry';
 import { newAchievements, prepareDaily, shareLine } from '../sim/meta';
 import { ensureChapter, sandboxDef } from '../data/generated';
 import { CHAPTER_BY_ID } from '../data/chapters';
+import { cosmetic, type CosmeticSlot } from '../data/cosmetics';
+import { isCampaignChapter, scrapbookHtml, scrapPage } from './scrapbook';
 import { playFabricInspection, playMarker, playSpotTheDefect } from './minigame';
 import { PRODUCTS } from '../data/products';
 import { shipmentRolls } from '../sim/sourcing';
@@ -81,7 +83,8 @@ export class App {
       () => !!this.s && this.speed > 0 && !this.paused(),
     );
     this.audio.setEnabled(this.progress.sound);
-    setLang(this.progress.lang ?? (navigator.language?.toLowerCase().startsWith('vi') ? 'vi' : 'en'));
+    const nav = navigator.language?.toLowerCase() ?? '';
+    setLang(this.progress.lang ?? (nav.startsWith('vi') ? 'vi' : nav.startsWith('fr') ? 'fr' : 'en'));
     logEvent(!!this.progress.log, { e: 'session' });
     const q = new URLSearchParams(location.search).get('eink');
     const auto = window.matchMedia?.('(update: slow), (monochrome)').matches ?? false;
@@ -132,6 +135,21 @@ export class App {
     logEvent(!!this.progress.log, { e: 'chapterStart', ch: id });
   }
 
+  /** Looks only: caps, the cat's collar (if she was adopted), the calendar, the radio song. */
+  private applyCosmetics(): void {
+    const c = this.progress.cosmetics ?? {};
+    const campaign = { ...this.progress.campaign, ...(this.s?.campaign ?? {}) };
+    const ch = this.s ? CHAPTER_BY_ID[this.s.chapterId] : undefined;
+    const catHere = campaign.cat === 'adopt' && !!ch && ch.index >= 3 && ch.index < 100;
+    this.renderer.cosmetics = {
+      cap: cosmetic('cap', c.cap).colour!,
+      collar: catHere ? cosmetic('collar', c.collar).colour! : null,
+      calendar: ch && ch.index >= 1 ? { colour: cosmetic('calendar', c.calendar).colour! } : null,
+    };
+    const song = cosmetic('radio', c.radio ?? 'riverside').id;
+    this.audio.setSong(song === 'off' ? null : song);
+  }
+
   private begin(s: GameState): void {
     this.s = s;
     document.body.classList.remove('at-title');
@@ -146,6 +164,7 @@ export class App {
     this.lastProduct = activeOrder(s)?.product ?? null;
     this.visibleLines = s.lines.length > 2 ? [0, 1] : s.lines.map((_, i) => i);
     this.renderer.resize(s, this.visibleLines);
+    this.applyCosmetics();
     this.renderLinePicker();
     this.renderOverlayButton();
   }
@@ -284,6 +303,9 @@ export class App {
     if (has(s, 'training') && s.day >= 2) this.queueTip('mentor');
     if (has(s, 'merchandising')) this.queueTip('office');
     if (s.lines.length > 2) this.queueTip('lines');
+    if (has(s, 'macro') && s.macro) this.queueTip('macro');
+    if (has(s, 'diversify') && s.macro && s.minute > 7 * 60 + 20) this.queueTip('diversify');
+    if (s.campaign.cat === 'adopt' && has(s, 'sourcing')) this.queueTip('cat');
   }
 
   // ───────────────────────────── input
@@ -417,6 +439,22 @@ export class App {
           () => this.toast(this.share),
         );
         return;
+      case 'cosmetic': {
+        const [slot, id] = arg.split(':') as [CosmeticSlot, string];
+        this.progress.cosmetics = { ...this.progress.cosmetics, [slot]: id };
+        saveProgress(this.progress);
+        this.applyCosmetics();
+        this.showTitle();
+        return;
+      }
+      case 'scrapbook':
+        if (this.s && this.s.phase !== 'done') saveGame(this.s);
+        this.s = null;
+        document.body.classList.add('at-title');
+        this.overlay.hidden = false;
+        this.overlay.innerHTML = trHtml(scrapbookHtml(this.progress.scrapbook ?? {}, this.progress.campaign));
+        this.renders.overlay = '';
+        return;
       case 'difficulty':
         this.progress.difficulty = arg as Progress['difficulty'];
         saveProgress(this.progress);
@@ -531,6 +569,9 @@ export class App {
         this.command({ type: 'mentor', junior: junior!, senior: senior === 'none' ? null : senior! });
         return;
       }
+      case 'prospect':
+        this.command({ type: 'prospect', market: arg });
+        return;
       case 'policy': {
         const [quote, extras] = arg.split(':');
         this.command({ type: 'policy', quote: Number(quote), extras: extras === 'true' });
@@ -589,6 +630,7 @@ export class App {
     }
     this.progress.stars[s.chapterId] = Math.max(this.progress.stars[s.chapterId] ?? 0, n);
     this.progress.campaign = { ...this.progress.campaign, ...s.campaign };
+    if (isCampaignChapter(s.chapterId) && n > 0) this.progress.scrapbook = { ...this.progress.scrapbook, [s.chapterId]: scrapPage(s) };
     saveProgress(this.progress);
     clearGame();
   }

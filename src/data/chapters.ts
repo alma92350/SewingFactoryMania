@@ -49,6 +49,7 @@ export type ScriptEvent =
   | { day: number; minute: number; kind: 'bonus' }
   | { day: number; minute: number; kind: 'tet' }
   | { day: number; minute: number; kind: 'family2' }
+  | { day: number; minute: number; kind: 'cat' }
   | { day: number; minute: number; kind: 'shock'; buyer: string; cutPct: number; text: string };
 
 export interface FamilyOption {
@@ -334,6 +335,7 @@ export const CHAPTERS: ChapterDef[] = [
           options: [{ label: 'Rush shorts', qty: 300, price: 4.8, dueDay: 7 }],
         },
       },
+      { day: 2, minute: 12 * 60, kind: 'cat' },
     ],
     family: {
       flag: 'ch3.loan',
