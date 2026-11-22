@@ -1030,3 +1030,31 @@ Both family choices win in Chapters 9 and 10. Every collection wins with either 
 - Quota is one price for all categories, and the audit is one visit (two if failed), not a year-round programme.
 - The gallery is curated by pull request, not a live online database: GitHub Pages has no server.
 - The "2000s campaign" is three chapters, not a full second campaign; computerised planning appears as the office from the first morning.
+
+## Art pass (build 0.6.1)
+
+A game art designer wrote the art bible (`docs/ART.md`): direction, palette (colour and e-ink), and Canvas 2D recipes for every element. It is implemented in `src/render/art.ts` and the renderer.
+
+- **Factory floor:**
+  - cream terrazzo with chips and worn patches, pale-green walls with windows and fluorescent tubes, light pools over the lines;
+  - painted safety lanes on wide layouts;
+  - a parquet office with a desk, fax, red telephone, thermos and tea glasses; the supplier's calendar on the wall;
+  - kraft packing area with taped cartons and a shipping mark; fabric rolls in the cut-fabric store.
+- **Machines and tables:** varnished tables with shadows and stools. Each machine has its own silhouette (slim black-and-gold lockstitch, mint overlock with four thread cones, cream buttonhole with a sliding clamp, green bartack with a control box), and they stay distinguishable in e-ink. Also new:
+  - the cutting table with a chalked fabric lay and a straight knife;
+  - the QC table with an angle lamp and a magnifier;
+  - spare machines under a dust cover;
+  - broken machines with smoke, sparks and a hazard sign, and serviced ones with a wrench badge.
+- **People:**
+  - seamstresses seen from behind at their machines, in their identity coat and the cosmetic cloth cap, arms reaching to the machine;
+  - a two-frame walk;
+  - the director (white shirt on a green diamond), the mechanic (blue overalls, toolbox), the electrician (helmet, cable), line leaders (clipboard) and QC inspectors (magnifier);
+  - sweat when hot, a heart when happy, "z" when tired.
+- **Life:** turning ceiling-fan shadows once fans are bought (they stop in a power cut), bench planks, tin lunch boxes at lunch, and a restyled cat (stripes, walking legs, curled asleep).
+- **Chrome:** the top bar in work-coat blue with a gold stripe, pressed buttons, a pale-green panel edge, a new app icon, and the theme colour.
+
+**Performance and accessibility:**
+- Everything static is drawn once into an offscreen layer, so each frame costs one `drawImage` for the floor.
+- All animation runs on one clock that stops in e-ink and under "reduce motion".
+- 60 fps median on the throttled phone; p95 33 ms in Chapter 10, up from 16.8 ms, the same level as Phase 3. More detail per person costs a little at the tail.
+- axe-core 40/40 screens clean; 175 tests and 42 smoke checks green.

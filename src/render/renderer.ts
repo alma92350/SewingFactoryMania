@@ -3,63 +3,28 @@ import { activeOrder, bottleneck, chapterOf, has, isLunch, isWorking, opCapaciti
 import type { Agent, Bundle, GameState, Station, Worker } from '../sim/types';
 import { benchSlot, computeLayout, contains, officeSpot, type Layout, type Rect } from './layout';
 import { tr } from '../ui/i18n';
+import * as A from './art';
+import { PAL, PAL_EINK, type Palette } from './art';
 
 /** Canvas renderer. Reads state, never writes it. */
 
-const COLOUR = {
-  floor: '#f3ead7',
-  tile: '#ebe0c8',
-  wall: '#dfe8d8',
-  ink: '#2b2a26',
-  muted: '#6f6a5e',
-  table: '#c9a571',
-  tableEdge: '#9c7a48',
-  lockstitch: '#3b4a5a',
-  overlock: '#5a4a6a',
-  buttonhole: '#2f5d62',
-  bartack: '#6d4c41',
-  cutting: '#8d6e63',
-  broken: '#c0392b',
-  warn: '#d98a00',
-  danger: '#c0392b',
-  select: '#1f7a5c',
-  carton: '#b08850',
-  director: '#1f7a5c',
-  mechanic: '#d35400',
-  skin: '#e7c19a',
-  hair: '#2b2320',
-};
-
+const COLOUR: Palette = PAL;
 /** E-ink: pure greys; meaning is carried by shape, border and pattern. */
-const EINK: typeof COLOUR = {
-  floor: '#ffffff',
-  tile: '#f2f2f2',
-  wall: '#e6e6e6',
-  ink: '#000000',
-  muted: '#444444',
-  table: '#d9d9d9',
-  tableEdge: '#000000',
-  lockstitch: '#333333',
-  overlock: '#555555',
-  buttonhole: '#222222',
-  bartack: '#444444',
-  cutting: '#666666',
-  broken: '#000000',
-  warn: '#555555',
-  danger: '#000000',
-  select: '#000000',
-  carton: '#bbbbbb',
-  director: '#000000',
-  mechanic: '#333333',
-  skin: '#dddddd',
-  hair: '#000000',
-};
-let C = COLOUR;
+const EINK: Palette = PAL_EINK;
+let C: Palette = COLOUR;
 let einkOn = false;
+/** Animation runs only with colour screens and without "reduce motion" (docs/ART.md §0.3). */
+let motionOn = true;
+const reduceMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+const syncMotion = () => {
+  motionOn = !einkOn && !(reduceMotion?.matches ?? false);
+};
+reduceMotion?.addEventListener?.('change', syncMotion);
 
 export function setEink(on: boolean): void {
   einkOn = on;
   C = on ? EINK : COLOUR;
+  syncMotion();
 }
 export function isEink(): boolean {
   return einkOn;
@@ -143,6 +108,7 @@ export class Renderer {
     if (vis.length === 0) vis.push(0);
     this.layout = computeLayout(w, h, vis.map((l) => s.stations.filter((st) => st.line === l).length));
     this.layout.lineIds = vis;
+    this.layoutGen += 1;
     const shown = vis.flatMap((l) => s.stations.filter((st) => st.line === l));
     shown.forEach((st, k) => (this.layout.byIndex[st.index] = this.layout.stations[k]));
     if (vis.length === 1 && s.lines.length > 1) {
@@ -230,70 +196,175 @@ export class Renderer {
     return spot(a.target);
   }
 
+  /** The static layer (floor, walls, zones, furniture, tables, stools, lanes): rebuilt only when its key changes. */
+  private bg: HTMLCanvasElement | null = null;
+  private bgKey = '';
+  private layoutGen = 0;
+
+  private staticKey(s: GameState): string {
+    return [this.layoutGen, this.size.w, this.size.h, this.dpr, einkOn, this.cosmetics.calendar?.colour ?? '', chapterOf(s).year, s.stations.map((st) => st.machine).join('')].join('|');
+  }
+
+  private drawStatic(ctx: CanvasRenderingContext2D, s: GameState): void {
+    const l = this.layout;
+    A.terrazzo(ctx, l.width, l.height, C, einkOn);
+    if (!einkOn) for (const r of l.lineRects.length ? l.lineRects : [bounds(l.stations.map((c) => c.cell))]) A.lightPool(ctx, r);
+    A.wallFrame(ctx, l.width, l.height, 8, C, false);
+    A.zoneBase(ctx, l.office, C.zoneOffice, C);
+    if (!einkOn) A.parquet(ctx, l.office, C);
+    A.officeDesk(ctx, l.office, l.portrait, C);
+    A.zoneBase(ctx, l.bench, C.zoneBench, C);
+    A.zoneBase(ctx, l.cut, C.zoneCut, C);
+    A.zoneBase(ctx, l.done, C.zonePacked, C);
+    // painted lanes only on wide layouts: in portrait the lanes would run through the labels
+    if (!l.portrait) l.lineRects.forEach((r, k) => A.lineFloor(ctx, r, C.line[(l.lineIds[k] ?? k) % 4]!, C, einkOn));
+    for (const st of s.stations) {
+      const cell = l.byIndex[st.index];
+      if (!cell) continue;
+      A.machineTable(ctx, cell.table, st.machine, C);
+      if (st.machine !== 'cutting') A.stool(ctx, cell.seat.x, cell.seat.y, l.radius, C);
+      if (st.machine === 'qc' && !einkOn) {
+        const t = cell.table;
+        const L2 = Math.min(t.h * 0.2, 7);
+        A.lightPool(ctx, { x: t.x + t.w * 0.74 - 2.4 * L2, y: t.y + t.h * 0.35 - 2.4 * L2, w: 4.8 * L2, h: 4.8 * L2 }, 0.45, '255,240,190');
+      }
+    }
+    const cal = this.cosmetics.calendar;
+    if (cal && !l.portrait) {
+      const o = l.office;
+      const w = Math.min(26, o.w * 0.18);
+      A.calendar(ctx, o.x + o.w - w - 6, o.y + 8, w, cal.colour, chapterOf(s).year, C, einkOn);
+    }
+  }
+
+  private blitStatic(s: GameState): void {
+    const ctx = this.ctx;
+    if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+      this.drawStatic(ctx, s); // tests and headless harvests: draw straight onto the canvas
+      return;
+    }
+    const key = this.staticKey(s);
+    if (!this.bg || key !== this.bgKey) {
+      this.bg ??= document.createElement('canvas');
+      this.bg.width = Math.max(1, Math.round(this.layout.width * this.dpr));
+      this.bg.height = Math.max(1, Math.round(this.layout.height * this.dpr));
+      const b = this.bg.getContext('2d');
+      if (!b) {
+        this.drawStatic(ctx, s);
+        return;
+      }
+      b.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.drawStatic(b, s);
+      this.bgKey = key;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(this.bg, 0, 0);
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+  }
+
   draw(s: GameState, view: ViewState, frac: number, timeMs: number, overlay: Overlay = 'none'): void {
     const ctx = this.ctx;
     const l = this.layout;
+    const T = motionOn ? timeMs : 0;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.fillStyle = C.floor;
-    ctx.fillRect(0, 0, l.width, l.height);
-    // floor tiles
-    ctx.fillStyle = C.tile;
-    const tile = 28;
-    for (let y = 0; y < l.height; y += tile) for (let x = (y / tile) % 2 ? tile : 0; x < l.width; x += tile * 2) ctx.fillRect(x, y, tile, tile);
+    this.blitStatic(s);
 
-    this.zone(l.office, 'Office');
-    this.zone(l.bench, 'Bench');
+    this.zoneLabel(l.office, 'Office');
+    this.zoneLabel(l.bench, 'Bench');
     this.drawCut(s);
     this.drawDone(s);
     this.drawLines(s);
+    this.drawBenchPlanks(s);
 
     const lunch = isLunch(s);
-    for (const st of s.stations) this.drawStation(s, st, view, frac, timeMs, lunch);
+    for (const st of s.stations) this.drawStation(s, st, view, frac, T, lunch);
     if (overlay !== 'none') this.drawOverlay(s, overlay);
 
     const dur = 450;
     this.flights = this.flights.filter((f) => timeMs - f.t0 < dur);
     for (const f of this.flights) {
       const t = (timeMs - f.t0) / dur;
-      const x = f.from.x + (f.to.x - f.from.x) * t;
-      const y = f.from.y + (f.to.y - f.from.y) * t - Math.sin(t * Math.PI) * 14;
-      this.bundleRect(x - 7, y - 4, 14, 8, f.fabric, f.tie);
+      const xl = f.from.x + (f.to.x - f.from.x) * t;
+      const yl = f.from.y + (f.to.y - f.from.y) * t;
+      A.ell(ctx, xl, yl + 4, 6, 2, 'rgba(0,0,0,0.12)');
+      this.bundleRect(xl - 7, yl - 4 - Math.sin(t * Math.PI) * 14, 14, 8, f.fabric, f.tie);
     }
 
-    for (const w of this.floorWorkers(s)) this.drawWorker(s, w, view, frac, timeMs);
-    s.agents.forEach((a, k) => this.drawAgent(s, a, k, frac, timeMs));
-    this.drawStaff(s);
-    this.drawCalendar(s);
-    this.drawCat(s, timeMs);
-    this.drawWeather(s, timeMs);
+    this.drawFans(s, T);
+    for (const w of this.floorWorkers(s)) this.drawWorker(s, w, view, frac, T);
+    s.agents.forEach((a, k) => this.drawAgent(s, a, k, frac, T));
+    this.drawStaff(s, T);
+    this.drawCat(s, T);
+    this.drawWeather(s, T);
 
     if (lunch && s.phase === 'shift') {
-      ctx.fillStyle = 'rgba(243,234,215,0.55)';
+      ctx.fillStyle = einkOn ? 'rgba(255,255,255,0.6)' : 'rgba(243,234,215,0.55)';
       ctx.fillRect(0, 0, l.width, l.height);
+      for (const st of s.stations) {
+        const cell = l.byIndex[st.index];
+        if (!cell || !st.workerId || st.machine === 'cutting') continue;
+        A.tiffin(ctx, cell.table.x + cell.table.w - 0.6 * l.radius, cell.table.y + 0.6 * l.radius, l.radius, C);
+      }
+      const fs = Math.round(l.radius * 1.1);
+      ctx.font = `bold ${fs}px system-ui, sans-serif`;
+      const text = 'Lunch · rice from the tin boxes';
+      const tw = ctx.measureText(text).width;
+      A.rr(ctx, l.width / 2 - tw / 2 - 10, l.height / 2 - fs, tw + 20, fs * 1.5, fs * 0.75, 'rgba(255,250,240,0.92)');
       ctx.fillStyle = C.ink;
-      ctx.font = `bold ${Math.round(l.radius * 1.1)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText('Lunch · rice from the tin boxes', l.width / 2, l.height / 2);
+      ctx.fillText(text, l.width / 2, l.height / 2);
     }
   }
 
-  /** Tint and label each line when there are several. */
+  /** A ceiling fan's turning shadow over each line, once fans are bought (they stop in a power cut). */
+  private drawFans(s: GameState, T: number): void {
+    if (!s.welfare.fans || einkOn) return;
+    const off = !!s.power && s.power.off && !s.power.generator.running;
+    const l = this.layout;
+    const rects = l.lineRects.length ? l.lineRects : [bounds(l.stations.map((c) => c.cell))];
+    for (const r of rects) {
+      const c0 = l.stations[0]?.cell;
+      const Rf = Math.min(46, 1.4 * Math.min(c0?.w ?? 40, c0?.h ?? 40));
+      A.fanShadow(this.ctx, r.x + r.w / 2, r.y + r.h / 2, Rf, off ? 0 : T);
+    }
+  }
+
+  /** Wooden planks under the people waiting on the bench. */
+  private drawBenchPlanks(s: GameState): void {
+    const l = this.layout;
+    const benchers = this.floorWorkers(s).filter((w) => w.station === null);
+    if (!benchers.length) return;
+    const rows = new Map<number, number[]>();
+    benchers.forEach((_, i) => {
+      const p = benchSlot(l, i, benchers.length);
+      const key = Math.round(p.y);
+      rows.set(key, [...(rows.get(key) ?? []), p.x]);
+    });
+    for (const [y, xs] of rows) {
+      const x0 = Math.max(l.bench.x + 4, Math.min(...xs) - l.radius);
+      const x1 = Math.min(l.bench.x + l.bench.w - 4, Math.max(...xs) + l.radius);
+      A.benchPlank(this.ctx, x0, y + 0.3 * l.radius, Math.max(10, x1 - x0), l.radius, C);
+    }
+  }
+
+  /** Line tags (the tint and the painted lanes are in the static layer). */
   private drawLines(s: GameState): void {
     const ctx = this.ctx;
     this.layout.lineRects.forEach((r, k) => {
       const i = this.layout.lineIds[k] ?? k;
-      if (!einkOn) {
-        ctx.fillStyle = i % 2 ? 'rgba(47,75,124,0.06)' : 'rgba(194,24,91,0.05)';
-        roundRect(ctx, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 8);
-        ctx.fill();
-      }
       const o = activeOrder(s, i);
       const label = `${s.lines[i]!.name}${o ? ` · ${PRODUCTS[o.product]!.plural} ${o.finished}/${o.qty}` : ' · idle'}`;
       ctx.font = 'bold 10px system-ui, sans-serif';
       const w = ctx.measureText(label).width + 10;
-      ctx.fillStyle = einkOn ? '#000' : i % 2 ? '#2f4b7c' : '#c2185b';
-      roundRect(ctx, r.x + 4, r.y + 1, w, 14, 7);
-      ctx.fill();
+      if (!einkOn) A.rr(ctx, r.x + 4, r.y + 2.5, w, 14, 4, 'rgba(0,0,0,0.18)');
+      A.rr(ctx, r.x + 4, r.y + 1, w, 14, 4, C.line[i % 4]!);
+      if (!einkOn) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        A.rrPath(ctx, r.x + 4.5, r.y + 1.5, w - 1, 13, 4);
+        ctx.stroke();
+      }
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'left';
       ctx.fillText(label, r.x + 9, r.y + 12);
@@ -301,7 +372,7 @@ export class Renderer {
   }
 
   /** Line leaders stand by their line's label; electricians wait in the office. */
-  private drawStaff(s: GameState): void {
+  private drawStaff(s: GameState, T: number): void {
     const r = this.layout.radius * 0.8;
     s.workers.forEach((w) => {
       if (w.absent) return;
@@ -310,15 +381,14 @@ export class Renderer {
         const rect = line >= 0 ? this.layout.lineRects[this.layout.lineIds.indexOf(line)] : undefined;
         if (line >= 0 && !rect && this.layout.lineIds.length < s.lines.length) return; // leads a line that is not on screen
         const p = rect ? { x: rect.x + rect.w - r - 4, y: rect.y + 8 } : officeSpot(this.layout, 1.4);
-        this.body(p.x, p.y, r, einkOn ? '#222' : '#6a1b9a', 'L', false);
+        A.body(this.ctx, p.x, p.y, r, { coat: C.leader, label: 'L', facing: 'down', pose: 'stand', prop: 'clipboard' }, T, C, einkOn);
       } else if (w.role === 'electrician') {
         const p = officeSpot(this.layout, 2);
-        this.body(p.x, p.y, r, einkOn ? '#222' : '#f9a825', 'E', false);
+        A.body(this.ctx, p.x, p.y, r, { coat: C.electrician, label: 'E', facing: 'down', pose: 'stand', hat: 'helmet', prop: 'cable' }, T, C, einkOn);
       }
     });
   }
 
-  /** Rain streaks, power cut shade, generator badge. */
   private drawWeather(s: GameState, timeMs: number): void {
     const p = s.power;
     if (!p) return;
@@ -388,41 +458,16 @@ export class Renderer {
     }
   }
 
-  private zone(r: Rect, label: string): void {
+  private zoneLabel(r: Rect, label: string): void {
     const ctx = this.ctx;
-    ctx.fillStyle = C.wall;
-    roundRect(ctx, r.x, r.y, r.w, r.h, 8);
-    ctx.fill();
-    ctx.fillStyle = C.muted;
-    ctx.font = '11px system-ui, sans-serif';
+    ctx.fillStyle = C.zoneLabel;
+    ctx.font = '600 11px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(label, r.x + 6, r.y + 13);
   }
 
   private bundleRect(x: number, y: number, w: number, h: number, fabric: string, tie: string): void {
-    const ctx = this.ctx;
-    if (einkOn) {
-      // pattern instead of colour: stripes for rework, hatch for everything else
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = -h; i < w; i += fabric === '#e57373' ? 3 : 5) {
-        ctx.moveTo(x + Math.max(0, i), y + Math.max(0, -i));
-        ctx.lineTo(x + Math.min(w, i + h), y + Math.min(h, h - (i + h - Math.min(w, i + h))));
-      }
-      ctx.stroke();
-      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-      return;
-    }
-    ctx.fillStyle = fabric;
-    ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = tie;
-    ctx.fillRect(x + w * 0.45, y, Math.max(2, w * 0.1), h);
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    A.bundle(this.ctx, x, y, w, h, fabric, tie, einkOn);
   }
 
   private bundleColours(s: GameState, b: Bundle): [string, string] {
@@ -442,7 +487,11 @@ export class Renderer {
       const c = Math.floor(i / rows);
       const k = i % rows;
       const [f, t] = this.bundleColours(s, pile[i]!);
-      this.bundleRect(r.x + c * (bw + 2), r.y + r.h - (k + 1) * (bh + 1), bw, bh, f, t);
+      if (k === 0) {
+        ctx.fillStyle = C.tableShadow;
+        ctx.fillRect(r.x + c * (bw + 2), r.y + r.h - 1, bw, 2);
+      }
+      this.bundleRect(r.x + c * (bw + 2) + (((i * 7 + k) % 3) - 1), r.y + r.h - (k + 1) * (bh + 1), bw, bh, f, t);
     }
     if (n >= 4) {
       const danger = n >= 7;
@@ -461,21 +510,37 @@ export class Renderer {
     }
   }
 
+
   private drawCut(s: GameState): void {
     const r = this.layout.cut;
-    this.zone(r, 'Cut fabric');
+    this.zoneLabel(r, 'Cut fabric');
     const actives = s.lines.map((_, i) => activeOrder(s, i)).filter((x) => !!x);
     const o = actives[0];
     const p = PRODUCTS[o?.product ?? 'shorts']!;
     const inner = { x: r.x + 6, y: r.y + 18, w: r.w - 12, h: r.h - 22 };
     const cut = actives.reduce((a, x) => a + (x?.cut ?? 0), 0);
+    const rolls = s.warehouse.filter((x) => !x.rejected && x.metres > 0).length;
+    // fabric rolls in store (never over the two text lines)
+    const portrait = this.layout.portrait;
+    const nRolls = Math.min(rolls, portrait ? 2 : 6);
+    const colourOf = (i: number) => (i === 0 ? p.fabric : i % 2 ? C.greige : A.shade(p.fabric, 0.15));
+    if (portrait) {
+      if (r.w >= 150) for (let i = 0; i < nRolls; i++) A.rollEnd(this.ctx, r.x + r.w - 8 - i * 13, r.y + 9, colourOf(i), einkOn);
+    }
+    else {
+      const rh = Math.max(4, Math.min(9, (r.h * 0.3) / 6));
+      for (let i = 0; i < nRolls; i++) {
+        const y = r.y + 46 + i * (rh + 3);
+        if (y + rh > r.y + r.h * 0.45) break;
+        A.rollLying(this.ctx, r.x + 6, y, r.w - 12, rh, colourOf(i), einkOn);
+      }
+    }
     const n = !o || !o.sampled ? 0 : Math.min(cut, 3 * Math.max(1, Math.floor((inner.h - 16) / 9)));
     for (let i = 0; i < n; i++) this.bundleRect(inner.x + (i % 3) * (inner.w / 3), inner.y + inner.h - 9 * (Math.floor(i / 3) + 1), inner.w / 3 - 2, 8, p.fabric, p.tie);
     const ctx = this.ctx;
     ctx.fillStyle = C.ink;
     ctx.font = 'bold 12px system-ui, sans-serif';
     ctx.textAlign = 'left';
-    const rolls = s.warehouse.filter((x) => !x.rejected && x.metres > 0).length;
     ctx.fillText(o ? (o.sampled ? `${cut} bundles` : 'Sample first') : 'No order', r.x + 6, r.y + 28);
     if (has(s, 'sourcing') && r.h > 50) {
       ctx.font = '10px system-ui, sans-serif';
@@ -486,7 +551,7 @@ export class Renderer {
 
   private drawDone(s: GameState): void {
     const r = this.layout.done;
-    this.zone(r, 'Packed');
+    this.zoneLabel(r, 'Packed');
     const ctx = this.ctx;
     const actives = s.lines.map((_, i) => activeOrder(s, i));
     const o = actives[0];
@@ -500,10 +565,7 @@ export class Renderer {
     for (let i = 0; i < Math.min(cartons, maxShown); i++) {
       const x = x0 + (i % perRow) * (cw + 3);
       const y = r.y + r.h - 6 - (Math.floor(i / perRow) + 1) * (cw * 0.7 + 3);
-      ctx.fillStyle = C.carton;
-      ctx.fillRect(x, y, cw, cw * 0.7);
-      ctx.strokeStyle = '#7d5f33';
-      ctx.strokeRect(x + 0.5, y + 0.5, cw - 1, cw * 0.7 - 1);
+      A.carton(ctx, x, y, cw, cw * 0.7, C, einkOn);
     }
     ctx.fillStyle = C.ink;
     ctx.font = 'bold 13px system-ui, sans-serif';
@@ -516,7 +578,7 @@ export class Renderer {
     } else ctx.fillText(o ? `${Math.min(finished, o.qty)} / ${o.qty}` : '—', r.x + 6, r.y + 30);
   }
 
-  private drawStation(s: GameState, st: Station, view: ViewState, frac: number, timeMs: number, lunch: boolean): void {
+  private drawStation(s: GameState, st: Station, view: ViewState, frac: number, T: number, lunch: boolean): void {
     const ctx = this.ctx;
     const cell = this.layout.byIndex[st.index];
     if (!cell) return;
@@ -531,81 +593,27 @@ export class Renderer {
     }
     this.drawPile(s, cell.pile, st.pile);
 
+    // the table and the stool are in the static layer
     const t = cell.table;
-    ctx.fillStyle = st.machine === 'qc' ? (einkOn ? '#ffffff' : '#e9e3d0') : C.table;
-    roundRect(ctx, t.x, t.y, t.w, t.h, 5);
-    ctx.fill();
-    ctx.strokeStyle = C.tableEdge;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
     const mw = Math.min(t.w * 0.42, 38);
     const mh = Math.min(t.h * 0.55, 24);
     const mx = cell.horizontal ? t.x + t.w * 0.06 : t.x + (t.w - mw) / 2;
     const my = cell.horizontal ? t.y + (t.h - mh) / 2 : t.y + t.h * 0.08;
     const working = isWorking(s, st);
-    if (st.machine === 'cutting') {
-      // cutting table: a fabric roll and scissors
-      ctx.fillStyle = einkOn ? '#bbb' : '#9fb3c8';
-      ctx.fillRect(mx, my + mh * 0.2, mw * 0.55, mh * 0.5);
-      ctx.fillStyle = einkOn ? '#888' : '#7d93ab';
-      ctx.beginPath();
-      ctx.ellipse(mx + mw * 0.55, my + mh * 0.45, mh * 0.12, mh * 0.25, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = C.ink;
-      ctx.lineWidth = 2;
-      const sx = mx + mw * 0.8;
-      const sy = my + mh * 0.45;
-      const snip = working && !einkOn ? Math.sin(timeMs / 90) * 0.25 : 0.2;
-      ctx.beginPath();
-      ctx.moveTo(sx - 8, sy - 6 * snip - 2);
-      ctx.lineTo(sx + 6, sy + 2);
-      ctx.moveTo(sx - 8, sy + 6 * snip + 2);
-      ctx.lineTo(sx + 6, sy - 2);
-      ctx.stroke();
-    } else if (st.machine === 'qc') {
-      // QC table: a lamp and a magnifier
-      ctx.strokeStyle = C.ink;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(mx + mw * 0.35, my + mh * 0.45, mh * 0.28, 0, Math.PI * 2);
-      ctx.moveTo(mx + mw * 0.35 + mh * 0.2, my + mh * 0.45 + mh * 0.2);
-      ctx.lineTo(mx + mw * 0.75, my + mh * 0.95);
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = st.broken ? C.broken : C[st.machine];
-      if (st.machine === 'lockstitch') {
-        ctx.fillRect(mx, my + mh * 0.65, mw, mh * 0.35);
-        ctx.fillRect(mx + mw * 0.75, my, mw * 0.25, mh);
-        ctx.fillRect(mx + mw * 0.1, my, mw * 0.9, mh * 0.3);
-      } else if (st.machine === 'overlock') {
-        roundRect(ctx, mx, my + mh * 0.15, mw, mh * 0.85, 6);
-        ctx.fill();
-        ctx.fillStyle = '#d9d2e9';
-        ctx.beginPath();
-        ctx.arc(mx + mw * 0.7, my + mh * 0.5, mh * 0.18, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        ctx.fillRect(mx, my + mh * 0.2, mw, mh * 0.8);
-        ctx.fillStyle = '#cfe8e6';
-        ctx.fillRect(mx + mw * 0.15, my + mh * 0.35, mw * 0.3, mh * 0.12);
-        ctx.fillRect(mx + mw * 0.15, my + mh * 0.6, mw * 0.3, mh * 0.12);
-      }
-      const nx = mx + mw * 0.2;
-      const bob = working && !einkOn ? Math.abs(Math.sin(timeMs / 70 + st.index)) * mh * 0.25 : 0;
-      ctx.strokeStyle = '#ddd';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(nx, my + mh * 0.3);
-      ctx.lineTo(nx, my + mh * 0.45 + bob);
-      ctx.stroke();
+    const order = activeOrder(s, st.line);
+    const prod = PRODUCTS[order?.product ?? 'shorts']!;
+    if (st.machine === 'cutting') A.cuttingTable(ctx, t, prod.fabric, !!st.current, working, T, st.index, C, einkOn);
+    else if (st.machine === 'qc') A.qcTable(ctx, t, order ? prod.fabric : null, C, einkOn);
+    else {
+      A.machine(ctx, { kind: st.machine, mx, my, mw, mh, tc: einkOn ? '#ffffff' : prod.tie, running: working, T, index: st.index, spare: st.opId === null }, C, einkOn);
+      if (st.broken) A.brokenFx(ctx, mx, my, mw, mh, T, st.index, einkOn);
     }
 
-    if (st.current && st.opId) {
+    if (st.current && st.opId && st.machine !== 'cutting') {
       const rate = working ? stationEfficiency(s, st) / opDef(st.opId).smv : 0;
       const p = Math.min(1, (st.current.done + rate * frac) / st.current.pieces);
       const [f, tie] = this.bundleColours(s, st.current);
-      this.bundleRect(mx + mw * 0.05, my + mh * 0.48, mw * 0.5, mh * 0.2, f, tie);
+      if (st.machine !== 'qc') this.bundleRect(mx + mw * 0.05, my + mh * 0.48, mw * 0.5, mh * 0.2, f, tie);
       ctx.fillStyle = 'rgba(0,0,0,0.15)';
       ctx.fillRect(t.x + 4, t.y + t.h - 6, t.w - 8, 3);
       ctx.fillStyle = C.select;
@@ -615,17 +623,8 @@ export class Renderer {
     if (st.broken || st.serviceUntil > s.minute) {
       const cx = mx + mw / 2;
       const cy = my - 1;
-      ctx.fillStyle = st.broken ? C.danger : C.mechanic;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - 13);
-      ctx.lineTo(cx + 8, cy + 2);
-      ctx.lineTo(cx - 8, cy + 2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 10px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(st.broken ? '!' : 'n', cx, cy);
+      if (st.broken) A.hazardBadge(ctx, cx, cy, C, einkOn);
+      else A.wrenchBadge(ctx, cx, cy, C, einkOn);
       const agent = s.agents.find((a) => a.target === st.index && a.until > 0);
       if (agent) {
         const total = agent.task === 'needle' ? s.tuning.needleChangeMinutes : agent.kind === 'mechanic' ? s.tuning.mechanicFixMinutes : s.tuning.fixMinutes;
@@ -668,145 +667,87 @@ export class Renderer {
     }
   }
 
+
   /** Cosmetics chosen on the title screen (looks only). */
   cosmetics: { cap: string; collar: string | null; calendar: { colour: string } | null } = { cap: 'rgba(255,255,255,0.85)', collar: null, calendar: null };
 
   /** The factory cat wanders along the bench and sleeps through lunch. */
-  private drawCat(s: GameState, timeMs: number): void {
+  private drawCat(s: GameState, T: number): void {
     if (!this.cosmetics.collar) return;
-    const ctx = this.ctx;
     const b = this.layout.bench;
-    const r = this.layout.radius * 0.55;
+    const c = this.layout.radius * 0.55;
     const asleep = isLunch(s) || s.phase !== 'shift';
-    const t = asleep ? 0 : timeMs / 7000;
+    const t = asleep ? 0 : T / 7000;
     // in portrait the right end of the bench holds the line picker: walk on the left half
     const x = this.layout.portrait ? b.x + b.w * (0.22 + 0.14 * Math.sin(t)) : b.x + b.w * (0.55 + 0.38 * Math.sin(t));
-    const y = b.y + b.h - r * 1.6;
+    const y = b.y + b.h - c * 1.6;
     const dir = Math.cos(t) >= 0 ? 1 : -1;
-    const fur = einkOn ? '#666' : '#e08a2e';
-    ctx.fillStyle = fur;
-    ctx.beginPath();
-    ctx.ellipse(x, y, r * 1.3, r * 0.75, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // tail
-    ctx.strokeStyle = fur;
-    ctx.lineWidth = r * 0.3;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x - dir * r * 1.2, y);
-    ctx.quadraticCurveTo(x - dir * r * 2.1, y - r * (asleep ? 0.2 : 1.2 + 0.2 * Math.sin(timeMs / 300)), x - dir * r * 1.7, y - r * (asleep ? -0.4 : 1.6));
-    ctx.stroke();
-    // head and ears
-    const hx = x + dir * r * 1.15;
-    const hy = y - r * (asleep ? 0.1 : 0.55);
-    ctx.beginPath();
-    ctx.arc(hx, hy, r * 0.62, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(hx - r * 0.5, hy - r * 0.3);
-    ctx.lineTo(hx - r * 0.35, hy - r * 0.95);
-    ctx.lineTo(hx - r * 0.05, hy - r * 0.5);
-    ctx.moveTo(hx + r * 0.05, hy - r * 0.5);
-    ctx.lineTo(hx + r * 0.35, hy - r * 0.95);
-    ctx.lineTo(hx + r * 0.5, hy - r * 0.3);
-    ctx.fill();
-    // collar
-    ctx.strokeStyle = einkOn ? '#000' : this.cosmetics.collar;
-    ctx.lineWidth = Math.max(1.5, r * 0.18);
-    ctx.beginPath();
-    ctx.arc(hx, hy, r * 0.62, Math.PI * 0.25, Math.PI * 0.75);
-    ctx.stroke();
-    if (asleep) {
-      ctx.fillStyle = C.muted;
-      ctx.font = `${Math.round(r)}px system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText('z', hx + dir * r, hy - r * 1.1);
-    }
-    ctx.lineCap = 'butt';
+    A.cat(this.ctx, x, y, c, dir, asleep, this.cosmetics.collar, T, C, einkOn);
   }
 
-  /** The supplier's wall calendar in the office. */
-  private drawCalendar(s: GameState): void {
-    const cal = this.cosmetics.calendar;
-    if (!cal || this.layout.portrait) return; // the portrait office strip has no wall space
-    const ctx = this.ctx;
-    const o = this.layout.office;
-    const w = Math.min(26, o.w * 0.18);
-    const h = w * 1.25;
-    const x = o.x + o.w - w - 6;
-    const y = o.y + 6;
-    ctx.fillStyle = '#fffdf6';
-    ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = einkOn ? '#444' : cal.colour;
-    ctx.fillRect(x, y, w, h * 0.45);
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-    ctx.fillStyle = C.ink;
-    ctx.font = `bold ${Math.round(w * 0.32)}px system-ui, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText(String(chapterOf(s).year), x + w / 2, y + h * 0.85);
+  /** Which way a seated worker faces: towards the machine. */
+  private facingAt(station: number | null): A.Facing {
+    const cell = station !== null ? this.layout.byIndex[station] : undefined;
+    if (!cell) return 'down';
+    return cell.horizontal ? 'left' : 'up';
   }
 
-  private body(x: number, y: number, r: number, coat: string, label: string, hairCap = true): void {
-    const ctx = this.ctx;
-    ctx.fillStyle = 'rgba(0,0,0,0.12)';
-    ctx.beginPath();
-    ctx.ellipse(x, y + r * 0.85, r * 0.9, r * 0.3, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = coat;
-    ctx.beginPath();
-    ctx.ellipse(x, y + r * 0.2, r, r * 0.8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = C.skin;
-    ctx.beginPath();
-    ctx.arc(x, y - r * 0.45, r * 0.52, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = C.hair;
-    ctx.beginPath();
-    ctx.arc(x, y - r * 0.55, r * 0.52, Math.PI, Math.PI * 2);
-    ctx.fill();
-    if (hairCap) {
-      ctx.fillStyle = einkOn ? 'rgba(255,255,255,0.85)' : this.cosmetics.cap;
-      ctx.fillRect(x - r * 0.5, y - r * 0.95, r, r * 0.16);
-    }
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.max(8, Math.round(r * 0.62))}px system-ui, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, x, y + r * 0.42);
-    ctx.textBaseline = 'alphabetic';
-  }
-
-  private drawWorker(s: GameState, w: Worker, view: ViewState, frac: number, timeMs: number): void {
+  private drawWorker(s: GameState, w: Worker, view: ViewState, frac: number, T: number): void {
     const ctx = this.ctx;
     const r = this.layout.radius;
     const p = this.workerPos(s, w, frac);
     if (view.selectedWorker === w.id) {
       ctx.fillStyle = 'rgba(31,122,92,0.25)';
       ctx.beginPath();
-      ctx.arc(p.x, p.y, r * 1.6 + Math.sin(timeMs / 200) * 2, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, r * 1.6 + Math.sin(T / 200) * 2, 0, Math.PI * 2);
       ctx.fill();
     }
-    if (w.station !== null && w.arriveAt <= s.minute) {
-      const eff = stationEfficiency(s, s.stations[w.station]!);
-      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    const walking = w.arriveAt > s.minute + frac && w.arriveAt > w.leftAt;
+    const seated = w.station !== null && !walking;
+    if (seated) {
+      const eff = stationEfficiency(s, s.stations[w.station!]!);
+      ctx.strokeStyle = 'rgba(43,42,38,0.15)';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(p.x, p.y, r + 3, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.strokeStyle = einkOn ? C.ink : eff >= 0.8 ? '#2e7d32' : eff >= 0.6 ? C.warn : C.danger;
+      ctx.strokeStyle = einkOn ? C.ink : eff >= 0.8 ? C.ok : eff >= 0.6 ? C.warn : C.danger;
+      if (einkOn) ctx.setLineDash(eff >= 0.8 ? [] : eff >= 0.6 ? [6, 3] : [2, 3]);
+      ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.arc(p.x, p.y, r + 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, eff));
       ctx.stroke();
+      ctx.lineCap = 'butt';
+      ctx.setLineDash([]);
     }
-    this.body(p.x, p.y, r, workerColor(w), w.role === 'qc' ? 'QC' : w.name.slice(0, 2));
-    if (w.fatigue > 0.55) {
+    let facing: A.Facing = 'down';
+    if (walking) {
+      const to = this.workerPosAt(s, w, w.station);
+      const from = this.workerPosAt(s, w, w.from);
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+    } else if (seated) facing = this.facingAt(w.station);
+    const phase = (w.id.charCodeAt(0) * 37) % 360;
+    A.body(ctx, p.x, p.y, r, {
+      coat: workerColor(w),
+      label: w.role === 'qc' ? 'QC' : w.name.slice(0, 2),
+      facing,
+      pose: walking ? 'walk' : seated ? 'seated' : 'stand',
+      cap: this.cosmetics.cap,
+      prop: w.role === 'qc' ? 'magnifier' : null,
+      phase,
+    }, T, C, einkOn);
+    // one mood cue: sweat (hot) > tired > happy
+    const hot = (!!s.power && s.power.off && !s.power.generator.running) || (has(s, 'morale') && !s.welfare.fans && w.fatigue > 0.4);
+    if (hot && r >= 9) A.sweat(ctx, p.x, p.y, r, T, phase / 360, C);
+    else if (w.fatigue > 0.55) {
       ctx.fillStyle = C.muted;
       ctx.font = `bold ${Math.round(r * 0.7)}px system-ui, sans-serif`;
-      ctx.fillText('z', p.x + r * 0.9, p.y - r * 0.9 - Math.sin(timeMs / 400) * 2);
-    }
-    if (w.station === null && w.arriveAt <= s.minute) {
+      ctx.textAlign = 'center';
+      ctx.fillText('z', p.x + r * 0.9, p.y - r * 0.9 - Math.sin(T / 400) * 2);
+    } else if (has(s, 'morale') && w.morale >= 0.8 && w.fatigue < 0.4 && r >= 9 && (T === 0 ? r >= 12 : (T + phase * 997) % 6000 < 1200)) A.heart(ctx, p.x, p.y, r, C);
+    if (w.station === null && !walking) {
       ctx.fillStyle = C.ink;
       ctx.font = '10px system-ui, sans-serif';
       ctx.textAlign = 'center';
@@ -814,7 +755,16 @@ export class Renderer {
     }
   }
 
-  private drawAgent(s: GameState, a: Agent, k: number, frac: number, timeMs: number): void {
+  /** Where a worker sits (or waits on the bench) for a given station, without the walking interpolation. */
+  private workerPosAt(s: GameState, w: Worker, station: number | null): { x: number; y: number } {
+    const seat = station !== null ? this.layout.byIndex[station]?.seat : undefined;
+    if (seat) return seat;
+    const benchers = this.floorWorkers(s).filter((x) => x.station === null);
+    const i = Math.max(0, benchers.indexOf(w));
+    return benchSlot(this.layout, i, Math.max(benchers.length, 1));
+  }
+
+  private drawAgent(s: GameState, a: Agent, k: number, frac: number, T: number): void {
     if (a.kind === 'mechanic' && workerById(s, a.id)?.absent) return;
     const site = this.screenSite(s);
     if (site !== null) {
@@ -825,27 +775,14 @@ export class Renderer {
         if (home && home !== site) return;
       }
     }
-    const ctx = this.ctx;
     const r = this.layout.radius * 0.85;
     const p = this.agentPos(s, a, k, frac);
-    const jig = a.until > 0 ? Math.sin(timeMs / 60) * 1.5 : 0;
+    const jig = a.until > 0 ? Math.sin(T / 60) * 1.5 : 0;
+    const moving = a.target !== null && a.until === 0 && a.arriveAt > s.minute + frac;
     if (a.kind === 'director') {
-      ctx.fillStyle = C.director;
-      ctx.beginPath();
-      ctx.moveTo(p.x + jig, p.y - r);
-      ctx.lineTo(p.x + r + jig, p.y);
-      ctx.lineTo(p.x + jig, p.y + r);
-      ctx.lineTo(p.x - r + jig, p.y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.round(r * 0.7)}px system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('You', p.x + jig, p.y + 1);
-      ctx.textBaseline = 'alphabetic';
+      A.body(this.ctx, p.x + jig, p.y, r, { coat: C.shirt, label: 'You', labelInk: C.director, facing: 'down', pose: moving ? 'walk' : 'stand', outline: true, diamond: C.director }, T, C, einkOn);
     } else {
-      this.body(p.x + jig, p.y, r, C.mechanic, 'M', false);
+      A.body(this.ctx, p.x + jig, p.y, r, { coat: C.mechanicSuit, label: 'M', facing: 'down', pose: moving ? 'walk' : 'stand', straps: true, prop: 'toolbox' }, T, C, einkOn);
     }
   }
 }
@@ -866,4 +803,13 @@ function fit(ctx: CanvasRenderingContext2D, raw: string, maxW: number): string {
   let t = text;
   while (t.length > 1 && ctx.measureText(`${t}…`).width > maxW) t = t.slice(0, -1);
   return `${t}…`;
+}
+
+function bounds(rs: Rect[]): Rect {
+  if (!rs.length) return { x: 0, y: 0, w: 1, h: 1 };
+  const x0 = Math.min(...rs.map((r) => r.x));
+  const y0 = Math.min(...rs.map((r) => r.y));
+  const x1 = Math.max(...rs.map((r) => r.x + r.w));
+  const y1 = Math.max(...rs.map((r) => r.y + r.h));
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }

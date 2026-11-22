@@ -1,15 +1,18 @@
 :root {
-  --bg: #f3ead7;
+  --bg: #efe4cc;
   --surface: #fffaf0;
   --ink: #2b2a26;
-  --muted: #6f6a5e;
+  --muted: #5f5a4f;
   --accent: #1f7a5c;
   --accent-ink: #ffffff;
   --line: #d9cdb3;
   --bad: #c0392b;
   --ok: #2e7d32;
-  --top: #2f4b7c;
-  --top-ink: #f3ead7;
+  --top: #2d4a6e;
+  --top-ink: #f6eedb;
+  --wall: #cfe0c6;
+  --gold: #e8c547;
+  --press: inset 0 -2px 0 rgba(43,42,38,0.14);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
@@ -228,3 +231,13 @@ body.eink .morale span { background: #000 !important; }
 .fi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px; margin: 8px 0; }
 .swatch.roll.tile { width: 100%; height: auto; aspect-ratio: 1; min-height: 64px; }
 .swatch.roll.tile.flagged::after { font-size: 36px; }
+
+/* Art bible §9: chrome that matches the factory (gold decal stripe, pale-green skirting, pressed buttons) */
+#topbar { border-bottom: 2px solid var(--gold); }
+#panel { border-top: 3px solid var(--wall); }
+#panel button, .card button { box-shadow: var(--press); }
+#panel button:active, .card button:active { box-shadow: none; transform: translateY(1px); }
+.card { border-top: 4px solid var(--top); }
+.card.fax { border-top-color: #b23a3a; }
+body.eink { --wall: #000000; --gold: #000000; --press: none; }
+body.eink #panel button:active, body.eink .card button:active { transform: none; }
