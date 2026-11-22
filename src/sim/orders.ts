@@ -1,5 +1,6 @@
 import { masAdvice } from './macro';
 import { brokerQuota } from './us';
+import { chooseCollection } from './brand';
 import { chance, rand } from '../core/rng';
 import { BUYERS } from '../data/buyers';
 import { CREW } from '../data/people';
@@ -231,7 +232,7 @@ export function checkOrders(s: GameState, events: SimEvent[]): void {
   }
   if (has(s, 'orders') && s.minute === s.tuning.shiftEnd - 1) {
     for (const q of s.orders) {
-      if ((q.status === 'active' || q.status === 'queued') && q.dueDay === s.day && !s.decisions.some((d) => d.orderId === q.id)) {
+      if ((q.status === 'active' || q.status === 'queued') && q.dueDay === s.day && q.buyer !== 'ownlabel' && !s.decisions.some((d) => d.orderId === q.id)) {
         pushCutoff(s, q, events);
       }
     }
@@ -461,6 +462,9 @@ export function resolveDecision(s: GameState, id: number, optionId: string, even
       if (optionId === 'cutter' && d.shipmentId !== undefined) rejectRolls(s, inspectByCutter(s, d.shipmentId));
       break;
     case 'info':
+      break;
+    case 'brand':
+      chooseCollection(s, optionId);
       break;
   }
   return null;

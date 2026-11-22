@@ -94,6 +94,15 @@ export const BUYERS: Record<string, BuyerDef> = {
     inspection: 'normal',
     colour: '#283593',
   },
+  ownlabel: {
+    id: 'ownlabel',
+    name: 'Sài Gòn 1979',
+    contact: 'Your shops',
+    habit: 'Your own label. Nobody inspects it but your customers.',
+    origin: 'Saigon',
+    inspection: 'none',
+    colour: '#b71c1c',
+  },
   golden: {
     id: 'golden',
     name: 'Golden Harbour Trading',

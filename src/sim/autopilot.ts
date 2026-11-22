@@ -3,9 +3,10 @@ import { coverEmptySteps, leaderPresent, rebalance, seatBench } from './leader';
 export { coverEmptySteps, rebalance } from './leader';
 import { buyMissingFabric } from './office';
 import { bonusCost } from './morale';
-import { activeOrder, dailyWages, has, lineRate, orderById, projectedFinishDay, workMinutesPerDay } from './selectors';
+import { activeOrder, chapterOf, dailyWages, has, lineRate, orderById, projectedFinishDay, workMinutesPerDay } from './selectors';
 import type { GameState } from './types';
 import { siteOfStation, siteOfWorker } from './sites';
+import { brandStock, demandTonight } from './brand';
 
 function agentHome(s: GameState, id: string): string {
   const w = s.workers.find((x) => x.id === id);
@@ -79,6 +80,15 @@ export function makeBot(cfg: BotConfig = {}) {
       const other = s.lines.map((l) => l.site ?? 'main').find((x) => x !== here);
       if (other && !need(here) && need(other) && act(applyCommand(s, { type: 'travel', site: other }))) lastFlightDay = s.day;
     }
+    // your own label: advertise when the stock piles up
+    if (has(s, 'brand') && s.brand && s.minute === 15 * 60) {
+      const stock = brandStock(s);
+      const nights = chapterOf(s).days - s.day + 1;
+      if (s.brand.adUntil < s.day && stock > demandTonight(s) * 1.5 && s.cash > dailyWages(s) * 3) act(applyCommand(s, { type: 'advertise' }));
+      // near the end, a sale beats the 60%-off clearance
+      const want = stock > demandTonight(s) * nights * 1.1 ? -1 : 0;
+      if (s.brand.priceLevel !== want && nights <= 3) act(applyCommand(s, { type: 'price', level: want }));
+    }
     // American quota: buy when cheap, or the day before the vessel at the latest
     if (has(s, 'quota') && s.quota && s.minute % 30 === 0) {
       for (const q of s.orders) {
@@ -87,7 +97,7 @@ export function makeBot(cfg: BotConfig = {}) {
       }
     }
     // after the shock, look for new customers while there is time and cash
-    if (has(s, 'diversify') && s.macro && s.minute === 8 * 60) {
+    if (has(s, 'diversify') && s.macro && s.day <= 2 && s.minute === 8 * 60) {
       for (const m of ['saigon', 'uniform', 'europe']) {
         if (s.cash > dailyWages(s) * 4) act(applyCommand(s, { type: 'prospect', market: m }));
       }

@@ -198,7 +198,7 @@ export interface DecisionOption {
   detail?: string;
 }
 
-export type DecisionKind = 'fax' | 'family' | 'cutoff' | 'inspection' | 'change' | 'sample' | 'marker' | 'fabric' | 'power' | 'bonus' | 'info';
+export type DecisionKind = 'fax' | 'family' | 'cutoff' | 'inspection' | 'change' | 'sample' | 'marker' | 'fabric' | 'power' | 'bonus' | 'info' | 'brand';
 
 export interface Decision {
   id: number;
@@ -270,6 +270,8 @@ export interface GameState {
   policy: { quote: number; extras: boolean };
   /** Chapter 7: new markets being explored (the first fax arrives on `day`). */
   prospects: { market: string; day: number; sent: boolean }[];
+  /** Chapter 10: your own label (collection, sales, price level, advertising). */
+  brand: { collection: string; orderId: number; sold: number; revenue: number; priceLevel: number; adUntil: number; markdownSold: number; soldToday: number; adsBought: number } | null;
   /** Chapter 9+: where the director is, and when the current flight lands (0 = on the ground). */
   director: { site: string; flightUntil: number } | null;
   /** Chapter 8: the US quota price per dozen (and its history). */

@@ -55,6 +55,7 @@ export type ScriptEvent =
   | { day: number; minute: number; kind: 'family2' }
   | { day: number; minute: number; kind: 'cat' }
   | { day: number; minute: number; kind: 'audit' }
+  | { day: number; minute: number; kind: 'collection' }
   | { day: number; minute: number; kind: 'shock'; buyer: string; cutPct: number; text: string };
 
 export interface FamilyOption {
@@ -1097,6 +1098,106 @@ export const CHAPTERS: ChapterDef[] = [
       options: [
         { id: 'ut', label: 'Út moves north', effect: 'A free leader on line C; Út misses the family' },
         { id: 'thang', label: 'Hire Mr. Thắng', effect: 'A leader on line C at $3.50/day; better applicants in Hà Nội' },
+      ],
+    },
+  },
+  {
+    id: 'ch10',
+    index: 10,
+    name: 'Our Own Label',
+    year: 2008,
+    place: 'Saigon and Hà Nội, October 2008',
+    intro:
+      'October 2008. Saigon has motorbikes, cafés and young people with salaries, and they want clothes made here, by a name they know. You open two shops on Lê Lợi street for your own label. Then, in New York, a bank called Lehman Brothers falls, and the American orders start to shake.',
+    days: 7,
+    rainDays: [],
+    systems: ['line', 'orders', 'hiring', 'quality', 'mechanic', 'sourcing', 'cutting', 'power', 'leaders', 'morale', 'training', 'planning', 'merchandising', 'macro', 'diversify', 'quota', 'compliance', 'sites', 'brand'],
+    newSystems: ['brand'],
+    stations: [],
+    lines: [
+      { name: 'Line A', site: 'saigon', stations: [C, L, L, L, L, L, O, O, O, B, Q] },
+      { name: 'Line B', site: 'saigon', stations: [L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+      { name: 'Line C', site: 'hanoi', stations: [L, L, L, L, L, L, L, O, O, B, Q] },
+      { name: 'Line D', site: 'hanoi', stations: [L, L, L, L, L, L, O, O, O, O, B, T, Q] },
+    ],
+    crew: { tam: 0, huong: 1, bich: 2, linh: 3, lan: 4, thao: 5, hoa: 6, ngan: 7, thu: 10, dung: 11, giang: 12, hanh: 13, phuong: 14, van: 15, trang: 16, cuc: 17, kim: 18, nhung: 23, hong: 47, quang: null, hai: null, son: null, hien: null, tuan: null },
+    crewLeads: { quang: 1, hai: 3 },
+    extraCrew: 30,
+    cash: 2600,
+    rent: 70,
+    applicants: 4,
+    starText: ['Sell 60% of your collection at full price and keep $3,500', '…ship every export order on time and finish with $6,000 or more', '…sell 90% at full price, with no overtime and nobody laid off'],
+    applicantRoles: ['operator', 'mechanic', 'qc', 'cutter', 'electrician', 'leader', 'planner', 'merchandiser'],
+    script: [
+      { day: 1, minute: 7 * 60, kind: 'collection' },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'us10',
+          buyer: 'atlantic',
+          product: 'polo',
+          text: 'Holiday polos, CMT, the usual quota. Mr. Brooks.',
+          optional: false,
+          options: [
+            { label: 'Store lot', qty: 900, price: 11.2, dueDay: 6 },
+            { label: 'Holiday lot', qty: 1100, price: 11.2, dueDay: 6 },
+            { label: 'Big lot', qty: 1300, price: 11, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'yukata10',
+          buyer: 'sakuraya',
+          product: 'yukata',
+          text: 'Yukata for next summer. Japan is nervous; we order early. Watanabe.',
+          optional: false,
+          options: [
+            { label: 'Careful lot', qty: 400, price: 18, dueDay: 6 },
+            { label: 'Usual lot', qty: 500, price: 18, dueDay: 7 },
+            { label: 'Big lot', qty: 600, price: 17.5, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 1,
+        minute: 7 * 60,
+        kind: 'fax',
+        fax: {
+          tag: 'kansai10',
+          buyer: 'kansai',
+          product: 'workwear',
+          text: 'Jackets for the car plants, CMT. Mr. Mori.',
+          optional: false,
+          options: [
+            { label: 'First lot', qty: 400, price: 20, dueDay: 6 },
+            { label: 'Two plants', qty: 500, price: 20, dueDay: 7 },
+            { label: 'All plants', qty: 600, price: 19.5, dueDay: 7 },
+          ],
+        },
+      },
+      {
+        day: 3,
+        minute: 7 * 60,
+        kind: 'shock',
+        buyer: 'atlantic',
+        cutPct: 50,
+        text: 'Lehman Brothers has fallen and American shoppers have stopped spending. Mr. Brooks writes: Atlantic cancels half of everything not yet on the line.',
+      },
+    ],
+    family: {
+      flag: 'ch10.name',
+      when: 'start',
+      title: 'The label’s name',
+      body: 'The sign painter is waiting on Lê Lợi street. Má wants the year she opened the workshop. Út wants the name of the woman who taught half the factory to sew.',
+      options: [
+        { id: 'heritage', label: '“Sài Gòn 1979”', effect: 'Older customers trust it, and Má’s friends run the shops: demand +30%, shops take 20% instead of 30%' },
+        { id: 'lan', label: '“Lan & Co.”', effect: 'Young customers pay more but come less often: prices +15%, demand −15%' },
       ],
     },
   },

@@ -3,6 +3,7 @@ import { buyFabric, rejectRolls } from './sourcing';
 import { buyWelfare } from './morale';
 import { layoffBlocked, prospect } from './macro';
 import { buyQuota } from './us';
+import { advertise, setPrice } from './brand';
 import { directorSite, hasSites, HANOI_WAGE, presentAt, SITE_NAME, siteOfStation, siteOfWorker, travel } from './sites';
 import { makeWorker } from './state';
 import { endDay } from './sim';
@@ -29,7 +30,9 @@ export type Command =
   | { type: 'policy'; quote: number; extras: boolean }
   | { type: 'prospect'; market: string }
   | { type: 'quota'; orderId: number }
-  | { type: 'travel'; site: string };
+  | { type: 'travel'; site: string }
+  | { type: 'price'; level: number }
+  | { type: 'advertise' };
 
 export type CommandResult = { ok: true; events: SimEvent[] } | { ok: false; error: string };
 
@@ -64,6 +67,14 @@ export function applyCommand(s: GameState, c: Command): CommandResult {
       return hire(s, c.applicant);
     case 'letGo':
       return letGo(s, c.workerId);
+    case 'price': {
+      const err = setPrice(s, c.level);
+      return err ? no(err) : ok();
+    }
+    case 'advertise': {
+      const err = advertise(s);
+      return err ? no(err) : ok();
+    }
     case 'travel': {
       const err = travel(s, c.site);
       return err ? no(err) : ok();

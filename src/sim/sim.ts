@@ -11,6 +11,7 @@ import { sandboxFaxOptions } from '../data/generated';
 import { macroShock, prospectFaxes } from './macro';
 import { nightlyQuota, runAudit } from './us';
 import { SITE_NAME, stepTravel } from './sites';
+import { nightlySales, pushCollection } from './brand';
 import { chance } from '../core/rng';
 import { generateApplicants } from './people';
 import { stepStation } from './production';
@@ -129,6 +130,8 @@ function fireScript(s: GameState, events: SimEvent[]): void {
         ],
       });
       events.push({ kind: 'decision', id: d.id });
+    } else if (e.kind === 'collection') {
+      pushCollection(s, events);
     } else if (e.kind === 'audit') {
       runAudit(s, events);
     } else if (e.kind === 'shock') {
@@ -209,6 +212,7 @@ export function endDay(s: GameState): SimEvent[] {
   nightlyMorale(s, s.overtime);
   nightlyMice(s, events);
   nightlyQuota(s);
+  nightlySales(s, events, s.day >= ch.days);
   if (ch.tetDay && s.day === ch.tetDay) tetReturns(s, events);
   else nightlyQuits(s, events);
   if (s.day >= ch.days) {
